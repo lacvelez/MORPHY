@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: morphy_db
+    environment:
+      POSTGRES_USER: morphy
+      POSTGRES_PASSWORD: morphy_dev_2026
+      POSTGRES_DB: morphy
+    ports:
+      - "5432:5432"
+    volumes:
+      - morphy_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    container_name: morphy_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://morphy:morphy_dev_2026@db:5432/morphy
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  morphy_data:
