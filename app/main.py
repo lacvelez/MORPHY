@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.database import engine, Base
 from app.models.models import User, Integration, Activity  # importar para registrar modelos
-from app.routers import auth
+from app.routers import auth, decision
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,6 +20,7 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(decision.router)
 
 @app.get("/")
 async def root():
