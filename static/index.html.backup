@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MORPHY — Training Decision Engine</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            border-bottom: 1px solid #2a2a3e;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 3px;
+        }
+
+        .logo-sub { font-size: 11px; color: #666; letter-spacing: 2px; text-transform: uppercase; }
+        .athlete-name { color: #888; font-size: 14px; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+
+        /* Decision Card */
+        .decision-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 25px;
+            border: 1px solid #2a2a3e;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .decision-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+        }
+
+        .decision-card.active_recovery::before { background: linear-gradient(90deg, #ff6b6b, #ffaa00); }
+        .decision-card.easy::before { background: linear-gradient(90deg, #ffaa00, #ffcc44); }
+        .decision-card.moderate::before { background: linear-gradient(90deg, #00cc66, #44dd88); }
+        .decision-card.quality::before { background: linear-gradient(90deg, #00aaff, #7b2ff7); }
+        .decision-card.hard::before { background: linear-gradient(90deg, #7b2ff7, #ff44aa); }
+
+        .decision-headline { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+        .decision-reasoning { color: #aaa; line-height: 1.6; margin-bottom: 15px; font-size: 15px; }
+
+        .risk-note {
+            background: rgba(255, 170, 0, 0.08);
+            border: 1px solid rgba(255, 170, 0, 0.2);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #e0c060;
+            line-height: 1.5;
+        }
+
+        .confidence-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .confidence-track { flex: 1; height: 6px; background: #2a2a3e; border-radius: 3px; overflow: hidden; }
+        .confidence-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+        .confidence-label { font-size: 13px; color: #888; min-width: 120px; }
+
+        /* Workouts */
+        .workouts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .workout-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #2a2a3e;
+            border-radius: 12px;
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .workout-card:hover { border-color: #3a3a5e; }
+        .workout-card.primary { border-color: #7b2ff7; }
+
+        .workout-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .workout-badge.primary { background: rgba(123, 47, 247, 0.2); color: #a78bfa; }
+        .workout-badge.alternative { background: rgba(255, 255, 255, 0.08); color: #888; }
+
+        .workout-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+        .workout-desc { font-size: 13px; color: #999; line-height: 1.5; margin-bottom: 12px; }
+
+        .workout-meta {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .meta-tag {
+            background: rgba(255,255,255,0.06);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #bbb;
+        }
+
+        .meta-tag.hr { color: #ff6b6b; }
+
+        .workout-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .workout-step {
+            font-size: 13px;
+            color: #ccc;
+            padding-left: 16px;
+            position: relative;
+            line-height: 1.4;
+        }
+
+        .workout-step::before {
+            content: '›';
+            position: absolute;
+            left: 0;
+            color: #7b2ff7;
+            font-weight: bold;
+        }
+
+        /* Tips */
+        .tips-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .tip-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 13px;
+            color: #bbb;
+            line-height: 1.5;
+        }
+
+        .tip-card .tip-icon { font-size: 16px; margin-bottom: 6px; display: block; }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: #12121e;
+            border: 1px solid #2a2a3e;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .stat-card:hover { transform: translateY(-2px); border-color: #3a3a5e; }
+        .stat-value { font-size: 36px; font-weight: 800; margin-bottom: 4px; }
+        .stat-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
+        .stat-detail { font-size: 11px; color: #555; }
+
+        /* Readiness Gauge */
+        .readiness-card {
+            background: #12121e;
+            border: 1px solid #2a2a3e;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .readiness-circle {
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex; align-items: center; justify-content: center; flex-direction: column;
+            position: relative;
+        }
+
+        .readiness-circle::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50%; padding: 4px;
+            background: conic-gradient(var(--color) var(--pct), #2a2a3e var(--pct));
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px));
+        }
+
+        .readiness-value { font-size: 42px; font-weight: 800; }
+        .readiness-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Activities Table */
+        .activities-section {
+            background: #12121e;
+            border: 1px solid #2a2a3e;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .section-title { padding: 18px 20px; font-size: 16px; font-weight: 600; border-bottom: 1px solid #2a2a3e; }
+
+        .activity-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+            padding: 12px 20px;
+            border-bottom: 1px solid #1a1a2a;
+            font-size: 13px;
+            align-items: center;
+        }
+
+        .activity-row:hover { background: rgba(255,255,255,0.02); }
+
+        .activity-row.header {
+            color: #666; font-size: 11px;
+            text-transform: uppercase; letter-spacing: 1px;
+            background: rgba(255,255,255,0.02);
+        }
+
+        .activity-name { font-weight: 500; }
+
+        .activity-type {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; background: rgba(123, 47, 247, 0.15); color: #a78bfa;
+        }
+
+        .hr-value { color: #ff6b6b; }
+
+        .risk-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 20px;
+            font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .risk-low { background: rgba(0,204,102,0.15); color: #00cc66; }
+        .risk-moderate { background: rgba(255,170,0,0.15); color: #ffaa00; }
+        .risk-high { background: rgba(255,68,68,0.15); color: #ff4444; }
+
+        .loading { text-align: center; padding: 60px; color: #555; }
+
+        .spinner {
+            width: 30px; height: 30px;
+            border: 3px solid #2a2a3e; border-top-color: #7b2ff7;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .actions { display: flex; gap: 10px; margin-bottom: 25px; }
+
+        .btn {
+            padding: 10px 20px; border-radius: 8px; border: 1px solid #2a2a3e;
+            background: #1a1a2e; color: #ccc; cursor: pointer; font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: #2a2a3e; border-color: #3a3a5e; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #7b2ff7, #00d4ff);
+            border: none; color: white; font-weight: 600;
+        }
+
+        .btn-primary:hover { opacity: 0.9; }
+
+        .status-dot {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            margin-right: 6px; background: #00cc66;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .connected-badge { font-size: 12px; color: #00cc66; display: flex; align-items: center; }
+
+        @media (max-width: 768px) {
+            .workouts-grid { grid-template-columns: 1fr; }
+            .tips-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .activity-row { grid-template-columns: 2fr 1fr 1fr; }
+            .activity-row .col-hide { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="logo">MORPHY</div>
+            <div class="logo-sub">Autonomous Training Decision Engine</div>
+        </div>
+        <div style="text-align: right;">
+            <div class="athlete-name" id="athleteName">Loading...</div>
+            <div class="connected-badge"><span class="status-dot"></span> Strava Connected</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="actions">
+            <button class="btn btn-primary" onclick="refreshAll()">Actualizar estado</button>
+            <button class="btn" onclick="syncActivities()">Sincronizar Strava</button>
+            <button class="btn" onclick="enrichData()">Enriquecer datos</button>
+        </div>
+
+        <div id="decisionContainer">
+            <div class="loading"><div class="spinner"></div>Analizando tu entrenamiento...</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 200px 1fr; gap: 16px; margin-bottom: 25px;">
+            <div class="readiness-card" id="readinessContainer">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+            <div>
+                <div class="stats-grid" id="statsContainer">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="activities-section" id="activitiesContainer">
+            <div class="loading"><div class="spinner"></div>Cargando actividades...</div>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+
+        async function fetchJSON(url) {
+            try {
+                const r = await fetch(API + url);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return await r.json();
+            } catch (e) {
+                console.error(`Error fetching ${url}:`, e);
+                return null;
+            }
+        }
+
+        function getActionColor(action) {
+            const c = {
+                active_recovery: '#ff6b6b', easy: '#ffaa00',
+                moderate: '#00cc66', quality: '#00aaff', hard: '#7b2ff7'
+            };
+            return c[action] || '#888';
+        }
+
+        function getReadinessColor(s) {
+            if (s >= 70) return '#00cc66';
+            if (s >= 40) return '#ffaa00';
+            return '#ff4444';
+        }
+
+        function renderWorkout(w, type) {
+            const isPrimary = type === 'primary';
+            return `
+                <div class="workout-card ${isPrimary ? 'primary' : ''}">
+                    <span class="workout-badge ${type}">${isPrimary ? '⭐ Recomendado' : 'Alternativa'}</span>
+                    <div class="workout-title">${w.title}</div>
+                    <div class="workout-desc">${w.description}</div>
+                    <div class="workout-meta">
+                        <span class="meta-tag">⏱ ${w.duration_min} min</span>
+                        <span class="meta-tag">${w.intensity_zone} · ${w.intensity_label}</span>
+                        ${w.hr_range ? `<span class="meta-tag hr">♥ ${w.hr_range}</span>` : ''}
+                    </div>
+                    <div class="workout-steps">
+                        ${w.examples.map(e => `<div class="workout-step">${e}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDecision(data) {
+            if (!data) {
+                document.getElementById('decisionContainer').innerHTML = '<div class="decision-card">Error cargando decisión</div>';
+                return;
+            }
+            const d = data.decision;
+            const color = getActionColor(d.action);
+
+            document.getElementById('decisionContainer').innerHTML = `
+                <div class="decision-card ${d.action}">
+                    <div class="decision-headline">${d.headline}</div>
+                    <div class="decision-reasoning">${d.reasoning}</div>
+                    ${d.risk_note ? `<div class="risk-note">${d.risk_note}</div>` : ''}
+                    <div class="confidence-bar">
+                        <span class="confidence-label">Confianza: ${Math.round(d.confidence * 100)}%</span>
+                        <div class="confidence-track">
+                            <div class="confidence-fill" style="width:${d.confidence * 100}%; background:${color}"></div>
+                        </div>
+                    </div>
+                    <div class="workouts-grid">
+                        ${renderWorkout(d.primary_workout, 'primary')}
+                        ${renderWorkout(d.alternative_workout, 'alternative')}
+                    </div>
+                    ${d.nutrition_tip || d.recovery_tip ? `
+                        <div class="tips-grid">
+                            ${d.nutrition_tip ? `<div class="tip-card"><span class="tip-icon">🍎</span>${d.nutrition_tip}</div>` : ''}
+                            ${d.recovery_tip ? `<div class="tip-card"><span class="tip-icon">😴</span>${d.recovery_tip}</div>` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderState(data) {
+            if (!data) return;
+            const s = data.state;
+            document.getElementById('athleteName').textContent = data.athlete;
+
+            const readinessColor = getReadinessColor(s.readiness_score);
+            const pct = s.readiness_score + '%';
+
+            document.getElementById('readinessContainer').innerHTML = `
+                <div class="readiness-circle" style="--color:${readinessColor}; --pct:${pct}">
+                    <div class="readiness-value" style="color:${readinessColor}">${Math.round(s.readiness_score)}</div>
+                    <div class="readiness-label">Readiness</div>
+                </div>
+                <span class="risk-badge risk-${s.injury_risk}">${s.injury_risk} risk</span>
+            `;
+
+            document.getElementById('statsContainer').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Fatiga Aguda (ATL)</div>
+                    <div class="stat-value">${s.acute_load_atl}</div>
+                    <div class="stat-detail">Últimos 7 días</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Fitness Crónica (CTL)</div>
+                    <div class="stat-value">${s.chronic_load_ctl}</div>
+                    <div class="stat-detail">Últimos 42 días</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Balance (TSB)</div>
+                    <div class="stat-value" style="color:${s.stress_balance_tsb >= 0 ? '#00cc66' : '#ff6b6b'}">${s.stress_balance_tsb}</div>
+                    <div class="stat-detail">${s.stress_balance_tsb >= 0 ? 'Descansado' : 'Fatigado'}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">ACWR</div>
+                    <div class="stat-value" style="color:${s.acwr > 1.3 ? '#ff6b6b' : s.acwr >= 0.8 ? '#00cc66' : '#ffaa00'}">${s.acwr}</div>
+                    <div class="stat-detail">${s.acwr > 1.5 ? 'Muy elevado' : s.acwr > 1.3 ? 'Elevado' : s.acwr >= 0.8 ? 'Óptimo' : 'Bajo'}</div>
+                </div>
+            `;
+        }
+
+        function renderActivities(data) {
+            if (!data || !data.activities) return;
+
+            const rows = data.activities.map(a => `
+                <div class="activity-row">
+                    <div>
+                        <span class="activity-name">${a.name}</span><br>
+                        <span style="color:#555; font-size:11px;">${new Date(a.date).toLocaleDateString('es-CO', {weekday:'short', month:'short', day:'numeric'})}</span>
+                    </div>
+                    <div>${a.distance_km} km</div>
+                    <div>${a.duration_min} min</div>
+                    <div class="hr-value">${a.avg_hr ? a.avg_hr + ' bpm' : '—'}</div>
+                    <div class="col-hide"><span class="activity-type">${a.type}</span></div>
+                </div>
+            `).join('');
+
+            document.getElementById('activitiesContainer').innerHTML = `
+                <div class="section-title">Actividades Recientes</div>
+                <div class="activity-row header">
+                    <div>Actividad</div>
+                    <div>Distancia</div>
+                    <div>Duración</div>
+                    <div>HR Prom</div>
+                    <div class="col-hide">Tipo</div>
+                </div>
+                ${rows}
+            `;
+        }
+
+        async function refreshAll() {
+            document.getElementById('decisionContainer').innerHTML = '<div class="loading"><div class="spinner"></div>Analizando...</div>';
+
+            const [decision, state, activities] = await Promise.all([
+                fetchJSON('/morphy/decision'),
+                fetchJSON('/morphy/state'),
+                fetchJSON('/auth/strava/activities')
+            ]);
+
+            renderDecision(decision);
+            renderState(state);
+            renderActivities(activities);
+        }
+
+        async function syncActivities() {
+            const btn = event.target;
+            btn.textContent = 'Sincronizando...';
+            btn.disabled = true;
+            const data = await fetchJSON('/auth/strava/sync');
+            if (data) alert(`Sync: ${data.activities_saved} nuevas, ${data.activities_skipped} existentes`);
+            btn.textContent = 'Sincronizar Strava';
+            btn.disabled = false;
+            refreshAll();
+        }
+
+        async function enrichData() {
+            const btn = event.target;
+            btn.textContent = 'Enriqueciendo...';
+            btn.disabled = true;
+            const data = await fetchJSON('/auth/strava/enrich');
+            if (data) alert(`Enriquecimiento: ${data.activities_enriched} actualizadas`);
+            btn.textContent = 'Enriquecer datos';
+            btn.disabled = false;
+            refreshAll();
+        }
+
+        refreshAll();
+    </script>
+</body>
+</html>

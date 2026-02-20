@@ -6,353 +6,61 @@
     <title>MORPHY — Training Decision Engine</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0a0a0f;
-            color: #e0e0e0;
-            min-height: 100vh;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
-            border-bottom: 1px solid #2a2a3e;
-            padding: 20px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 28px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: 3px;
-        }
-
-        .logo-sub {
-            font-size: 11px;
-            color: #666;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-
-        .athlete-name {
-            color: #888;
-            font-size: 14px;
-        }
-
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-
-        /* Decision Card */
-        .decision-card {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-radius: 16px;
-            padding: 30px;
-            margin-bottom: 25px;
-            border: 1px solid #2a2a3e;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .decision-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 3px;
-        }
-
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%); border-bottom: 1px solid #2a2a3e; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #00d4ff, #7b2ff7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 3px; }
+        .logo-sub { font-size: 11px; color: #666; letter-spacing: 2px; text-transform: uppercase; }
+        .athlete-name { color: #888; font-size: 14px; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+        .decision-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 30px; margin-bottom: 25px; border: 1px solid #2a2a3e; position: relative; overflow: hidden; }
+        .decision-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
         .decision-card.rest::before { background: linear-gradient(90deg, #ff4444, #ff6b6b); }
         .decision-card.reduce::before { background: linear-gradient(90deg, #ffaa00, #ffcc44); }
         .decision-card.maintain::before { background: linear-gradient(90deg, #00cc66, #44dd88); }
         .decision-card.increase::before { background: linear-gradient(90deg, #00aaff, #44ccff); }
-
-        .decision-headline {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
-
-        .decision-reasoning {
-            color: #aaa;
-            line-height: 1.6;
-            margin-bottom: 20px;
-            font-size: 15px;
-        }
-
-        .confidence-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .confidence-track {
-            flex: 1;
-            height: 6px;
-            background: #2a2a3e;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .confidence-fill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 1s ease;
-        }
-
-        .confidence-label {
-            font-size: 13px;
-            color: #888;
-            min-width: 120px;
-        }
-
-        .suggestions {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .suggestion {
-            background: rgba(255,255,255,0.04);
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #ccc;
-            border-left: 3px solid #333;
-        }
-
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin-bottom: 25px;
-        }
-
-        .stat-card {
-            background: #12121e;
-            border: 1px solid #2a2a3e;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            transition: transform 0.2s, border-color 0.2s;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-2px);
-            border-color: #3a3a5e;
-        }
-
-        .stat-value {
-            font-size: 36px;
-            font-weight: 800;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 4px;
-        }
-
-        .stat-detail {
-            font-size: 11px;
-            color: #555;
-        }
-
-        /* Readiness Gauge */
-        .readiness-card {
-            background: #12121e;
-            border: 1px solid #2a2a3e;
-            border-radius: 12px;
-            padding: 25px;
-            text-align: center;
-            margin-bottom: 25px;
-        }
-
-        .readiness-circle {
-            width: 160px;
-            height: 160px;
-            border-radius: 50%;
-            margin: 0 auto 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            position: relative;
-        }
-
-        .readiness-circle::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            padding: 4px;
-            background: conic-gradient(var(--color) var(--pct), #2a2a3e var(--pct));
-            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px));
-            mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px));
-        }
-
-        .readiness-value {
-            font-size: 42px;
-            font-weight: 800;
-        }
-
-        .readiness-label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* Activities Table */
-        .activities-section {
-            background: #12121e;
-            border: 1px solid #2a2a3e;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .section-title {
-            padding: 18px 20px;
-            font-size: 16px;
-            font-weight: 600;
-            border-bottom: 1px solid #2a2a3e;
-        }
-
-        .activity-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
-            padding: 12px 20px;
-            border-bottom: 1px solid #1a1a2a;
-            font-size: 13px;
-            align-items: center;
-        }
-
+        .decision-headline { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+        .decision-reasoning { color: #aaa; line-height: 1.6; margin-bottom: 20px; font-size: 15px; }
+        .confidence-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .confidence-track { flex: 1; height: 6px; background: #2a2a3e; border-radius: 3px; overflow: hidden; }
+        .confidence-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+        .confidence-label { font-size: 13px; color: #888; min-width: 120px; }
+        .suggestions { display: flex; flex-direction: column; gap: 8px; }
+        .suggestion { background: rgba(255,255,255,0.04); padding: 10px 14px; border-radius: 8px; font-size: 14px; color: #ccc; border-left: 3px solid #333; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 25px; }
+        .stat-card { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 20px; text-align: center; transition: transform 0.2s, border-color 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); border-color: #3a3a5e; }
+        .stat-value { font-size: 36px; font-weight: 800; margin-bottom: 4px; }
+        .stat-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
+        .stat-detail { font-size: 11px; color: #555; }
+        .readiness-card { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 25px; }
+        .readiness-circle { width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; flex-direction: column; position: relative; }
+        .readiness-circle::before { content: ''; position: absolute; inset: 0; border-radius: 50%; padding: 4px; background: conic-gradient(var(--color) var(--pct), #2a2a3e var(--pct)); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px)); }
+        .readiness-value { font-size: 42px; font-weight: 800; }
+        .readiness-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+        .activities-section { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; overflow: hidden; }
+        .section-title { padding: 18px 20px; font-size: 16px; font-weight: 600; border-bottom: 1px solid #2a2a3e; }
+        .activity-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; padding: 12px 20px; border-bottom: 1px solid #1a1a2a; font-size: 13px; align-items: center; }
         .activity-row:hover { background: rgba(255,255,255,0.02); }
-
-        .activity-row.header {
-            color: #666;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            background: rgba(255,255,255,0.02);
-        }
-
-        .activity-name {
-            font-weight: 500;
-        }
-
-        .activity-type {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            background: rgba(123, 47, 247, 0.15);
-            color: #a78bfa;
-        }
-
+        .activity-row.header { color: #666; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; background: rgba(255,255,255,0.02); }
+        .activity-name { font-weight: 500; }
+        .activity-type { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: rgba(123, 47, 247, 0.15); color: #a78bfa; }
         .hr-value { color: #ff6b6b; }
-
-        /* Risk Badge */
-        .risk-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
+        .risk-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
         .risk-low { background: rgba(0,204,102,0.15); color: #00cc66; }
         .risk-moderate { background: rgba(255,170,0,0.15); color: #ffaa00; }
         .risk-high { background: rgba(255,68,68,0.15); color: #ff4444; }
-
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 60px;
-            color: #555;
-        }
-
-        .spinner {
-            width: 30px;
-            height: 30px;
-            border: 3px solid #2a2a3e;
-            border-top-color: #7b2ff7;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 15px;
-        }
-
+        .loading { text-align: center; padding: 60px; color: #555; }
+        .spinner { width: 30px; height: 30px; border: 3px solid #2a2a3e; border-top-color: #7b2ff7; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 15px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Buttons */
-        .actions {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 25px;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border-radius: 8px;
-            border: 1px solid #2a2a3e;
-            background: #1a1a2e;
-            color: #ccc;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-
+        .actions { display: flex; gap: 10px; margin-bottom: 25px; }
+        .btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #2a2a3e; background: #1a1a2e; color: #ccc; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .btn:hover { background: #2a2a3e; border-color: #3a3a5e; }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #7b2ff7, #00d4ff);
-            border: none;
-            color: white;
-            font-weight: 600;
-        }
-
+        .btn-primary { background: linear-gradient(135deg, #7b2ff7, #00d4ff); border: none; color: white; font-weight: 600; }
         .btn-primary:hover { opacity: 0.9; }
-
-        .status-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 6px;
-            background: #00cc66;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        .connected-badge {
-            font-size: 12px;
-            color: #00cc66;
-            display: flex;
-            align-items: center;
-        }
-
-        @media (max-width: 600px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .activity-row { grid-template-columns: 2fr 1fr 1fr; }
-            .activity-row .col-hide { display: none; }
-        }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #00cc66; animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .connected-badge { font-size: 12px; color: #00cc66; display: flex; align-items: center; }
+        @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .activity-row { grid-template-columns: 2fr 1fr 1fr; } .activity-row .col-hide { display: none; } }
     </style>
 </head>
 <body>
@@ -420,14 +128,14 @@
         }
 
         function renderDecision(data) {
-            if (!data) {
+            if (!data || !data.decision) {
                 document.getElementById('decisionContainer').innerHTML = '<div class="decision-card">Error cargando decisión</div>';
                 return;
             }
             const d = data.decision;
             const color = getActionColor(d.action);
 
-            document.getElementById('athleteName', data.athlete);
+            document.getElementById('athleteName').textContent = data.athlete || '';
 
             document.getElementById('decisionContainer').innerHTML = `
                 <div class="decision-card ${d.action}">
@@ -440,17 +148,16 @@
                         </div>
                     </div>
                     <div class="suggestions">
-                        ${d.suggestions.map(s => `<div class="suggestion">${s}</div>`).join('')}
+                        ${(d.suggestions || []).map(s => `<div class="suggestion">${s}</div>`).join('')}
                     </div>
                 </div>
             `;
         }
 
         function renderState(data) {
-            if (!data) return;
+            if (!data || !data.state) return;
             const s = data.state;
-            const athleteEl = document.getElementById('athleteName');
-            athleteEl.textContent = data.athlete;
+            document.getElementById('athleteName').textContent = data.athlete || '';
 
             const readinessColor = getReadinessColor(s.readiness_score);
             const pct = s.readiness_score + '%';
@@ -506,10 +213,7 @@
             document.getElementById('activitiesContainer').innerHTML = `
                 <div class="section-title">Actividades Recientes</div>
                 <div class="activity-row header">
-                    <div>Actividad</div>
-                    <div>Distancia</div>
-                    <div>Duración</div>
-                    <div>HR Prom</div>
+                    <div>Actividad</div><div>Distancia</div><div>Duración</div><div>HR Prom</div>
                     <div class="col-hide">Tipo</div>
                 </div>
                 ${rows}
@@ -518,13 +222,11 @@
 
         async function refreshAll() {
             document.getElementById('decisionContainer').innerHTML = '<div class="loading"><div class="spinner"></div>Analizando...</div>';
-
             const [decision, state, activities] = await Promise.all([
                 fetchJSON('/morphy/decision'),
                 fetchJSON('/morphy/state'),
                 fetchJSON('/auth/strava/activities')
             ]);
-
             renderDecision(decision);
             renderState(state);
             renderActivities(activities);
@@ -532,27 +234,22 @@
 
         async function syncActivities() {
             const btn = event.target;
-            btn.textContent = 'Sincronizando...';
-            btn.disabled = true;
+            btn.textContent = 'Sincronizando...'; btn.disabled = true;
             const data = await fetchJSON('/auth/strava/sync');
-            if (data) alert(`Sync completo: ${data.activities_saved} nuevas, ${data.activities_skipped} existentes`);
-            btn.textContent = 'Sincronizar Strava';
-            btn.disabled = false;
+            if (data) alert(`Sync: ${data.activities_saved} nuevas, ${data.activities_skipped} existentes`);
+            btn.textContent = 'Sincronizar Strava'; btn.disabled = false;
             refreshAll();
         }
 
         async function enrichData() {
             const btn = event.target;
-            btn.textContent = 'Enriqueciendo...';
-            btn.disabled = true;
+            btn.textContent = 'Enriqueciendo...'; btn.disabled = true;
             const data = await fetchJSON('/auth/strava/enrich');
             if (data) alert(`Enriquecimiento: ${data.activities_enriched} actualizadas`);
-            btn.textContent = 'Enriquecer datos';
-            btn.disabled = false;
+            btn.textContent = 'Enriquecer datos'; btn.disabled = false;
             refreshAll();
         }
 
-        // Cargar al iniciar
         refreshAll();
     </script>
 </body>

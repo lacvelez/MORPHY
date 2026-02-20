@@ -10,6 +10,14 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
+    age = Column(Integer, nullable=True)
+    weight_kg = Column(Float, nullable=True)
+    height_cm = Column(Float, nullable=True)
+    sex = Column(String, nullable=True)          # "male" or "female"
+    max_hr = Column(Integer, nullable=True)       # max heart rate
+    rest_hr = Column(Integer, nullable=True)      # resting heart rate
+    primary_sport = Column(String, default="Run")
+    experience_level = Column(String, default="intermediate")  # beginner, intermediate, advanced
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Integration(Base):
