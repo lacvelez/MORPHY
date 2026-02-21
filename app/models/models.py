@@ -51,3 +51,5 @@ class Activity(Base):
     avg_pace = Column(Float, nullable=True)
     calories = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    

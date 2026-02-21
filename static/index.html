@@ -10,7 +10,8 @@
         .header { background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%); border-bottom: 1px solid #2a2a3e; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
         .logo { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #00d4ff, #7b2ff7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 3px; }
         .logo-sub { font-size: 11px; color: #666; letter-spacing: 2px; text-transform: uppercase; }
-        .athlete-name { color: #888; font-size: 14px; }
+        .athlete-name { color: #888; font-size: 14px; cursor: pointer; }
+        .athlete-name:hover { color: #ccc; }
         .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
         .decision-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 30px; margin-bottom: 25px; border: 1px solid #2a2a3e; position: relative; overflow: hidden; }
         .decision-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
@@ -52,7 +53,7 @@
         .loading { text-align: center; padding: 60px; color: #555; }
         .spinner { width: 30px; height: 30px; border: 3px solid #2a2a3e; border-top-color: #7b2ff7; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 15px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .actions { display: flex; gap: 10px; margin-bottom: 25px; }
+        .actions { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
         .btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #2a2a3e; background: #1a1a2e; color: #ccc; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .btn:hover { background: #2a2a3e; border-color: #3a3a5e; }
         .btn-primary { background: linear-gradient(135deg, #7b2ff7, #00d4ff); border: none; color: white; font-weight: 600; }
@@ -60,7 +61,109 @@
         .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #00cc66; animation: pulse 2s ease-in-out infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .connected-badge { font-size: 12px; color: #00cc66; display: flex; align-items: center; }
-        @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .activity-row { grid-template-columns: 2fr 1fr 1fr; } .activity-row .col-hide { display: none; } }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: #12121e; border: 1px solid #2a2a3e; border-radius: 16px; padding: 30px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+        .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        .modal-subtitle { font-size: 13px; color: #666; margin-bottom: 24px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full { grid-column: span 2; }
+        .form-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .form-input { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 8px; padding: 10px 14px; color: #e0e0e0; font-size: 14px; outline: none; transition: border-color 0.2s; }
+        .form-input:focus { border-color: #7b2ff7; }
+        .form-select { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 8px; padding: 10px 14px; color: #e0e0e0; font-size: 14px; outline: none; cursor: pointer; }
+        .zones-preview { background: rgba(123,47,247,0.08); border: 1px solid rgba(123,47,247,0.2); border-radius: 10px; padding: 14px; margin-bottom: 20px; }
+        .zones-title { font-size: 12px; color: #a78bfa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .zone-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .zone-row:last-child { border-bottom: none; }
+        .zone-name { color: #888; }
+        .zone-range { color: #ccc; font-weight: 500; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .zones-tip { font-size: 12px; color: #555; text-align: center; margin-top: 8px; }
+
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .activity-row { grid-template-columns: 2fr 1fr 1fr; }
+            .activity-row .col-hide { display: none; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: span 1; }
+        }
+        
+        .stat-card { position: relative; }
+
+        .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            background: #2a2a3e;
+            color: #666;
+            font-size: 10px;
+            cursor: help;
+            margin-left: 6px;
+            vertical-align: middle;
+            border: 1px solid #3a3a5e;
+            flex-shrink: 0;
+        }
+
+        .tooltip-icon:hover { background: #3a3a5e; color: #aaa; }
+
+        .tooltip-box {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e1e30;
+            border: 1px solid #3a3a5e;
+            border-radius: 10px;
+            padding: 12px 14px;
+            width: 220px;
+            font-size: 12px;
+            color: #ccc;
+            line-height: 1.5;
+            z-index: 50;
+            text-align: left;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .tooltip-box::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #3a3a5e;
+        }
+
+        .stat-card:hover .tooltip-box { display: block; }
+
+        .tooltip-range {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #2a2a3e;
+            font-size: 11px;
+            color: #777;
+        }
+
+        .readiness-card { position: relative; }
+
+        .readiness-tip {
+            margin-top: 12px;
+            font-size: 12px;
+            color: #555;
+            line-height: 1.5;
+            text-align: left;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+
     </style>
 </head>
 <body>
@@ -70,7 +173,7 @@
             <div class="logo-sub">Autonomous Training Decision Engine</div>
         </div>
         <div style="text-align: right;">
-            <div class="athlete-name" id="athleteName">Loading...</div>
+            <div class="athlete-name" id="athleteName" onclick="openProfile()" title="Editar perfil">Loading... ✏️</div>
             <div class="connected-badge"><span class="status-dot"></span> Strava Connected</div>
         </div>
     </div>
@@ -80,6 +183,7 @@
             <button class="btn btn-primary" onclick="refreshAll()">Actualizar estado</button>
             <button class="btn" onclick="syncActivities()">Sincronizar Strava</button>
             <button class="btn" onclick="enrichData()">Enriquecer datos</button>
+            <button class="btn" onclick="openProfile()">✏️ Mi perfil</button>
         </div>
 
         <div id="decisionContainer">
@@ -102,12 +206,70 @@
         </div>
     </div>
 
+    <!-- Modal Perfil -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal">
+            <div class="modal-title">Mi Perfil</div>
+            <div class="modal-subtitle">Estos datos mejoran la precisión del motor de decisión</div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">FC Máxima (bpm)</label>
+                    <input class="form-input" type="number" id="f_max_hr" placeholder="182" min="120" max="220">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">FC Reposo (bpm)</label>
+                    <input class="form-input" type="number" id="f_rest_hr" placeholder="50" min="30" max="100">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Edad</label>
+                    <input class="form-input" type="number" id="f_age" placeholder="30" min="15" max="80">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Peso (kg)</label>
+                    <input class="form-input" type="number" id="f_weight" placeholder="70" min="40" max="200">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Deporte principal</label>
+                    <select class="form-select" id="f_sport">
+                        <option value="Run">Running</option>
+                        <option value="Ride">Ciclismo</option>
+                        <option value="Swim">Natación</option>
+                        <option value="TrailRun">Trail Running</option>
+                        <option value="Triathlon">Triatlón</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nivel</label>
+                    <select class="form-select" id="f_level">
+                        <option value="beginner">Principiante</option>
+                        <option value="intermediate">Intermedio</option>
+                        <option value="advanced">Avanzado</option>
+                        <option value="elite">Elite</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="zones-preview" id="zonesPreview" style="display:none">
+                <div class="zones-title">Zonas de entrenamiento</div>
+                <div id="zonesContent"></div>
+                <div class="zones-tip">Basadas en tu FC de reserva (Karvonen)</div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn" onclick="closeProfile()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveProfile()">Guardar perfil</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API = '';
+        let currentProfile = {};
 
-        async function fetchJSON(url) {
+        async function fetchJSON(url, options = {}) {
             try {
-                const r = await fetch(API + url);
+                const r = await fetch(API + url, options);
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 return await r.json();
             } catch (e) {
@@ -127,6 +289,83 @@
             return '#ff4444';
         }
 
+        function calcZones(maxHr, restHr) {
+            const hrr = maxHr - restHr;
+            return [
+                { name: 'Z1 Recuperación', lo: Math.round(restHr + hrr * 0.50), hi: Math.round(restHr + hrr * 0.60) },
+                { name: 'Z2 Aeróbico',     lo: Math.round(restHr + hrr * 0.60), hi: Math.round(restHr + hrr * 0.70) },
+                { name: 'Z3 Tempo',        lo: Math.round(restHr + hrr * 0.70), hi: Math.round(restHr + hrr * 0.80) },
+                { name: 'Z4 Umbral',       lo: Math.round(restHr + hrr * 0.80), hi: Math.round(restHr + hrr * 0.90) },
+                { name: 'Z5 VO2max',       lo: Math.round(restHr + hrr * 0.90), hi: maxHr },
+            ];
+        }
+
+        function updateZonesPreview() {
+            const maxHr = parseInt(document.getElementById('f_max_hr').value);
+            const restHr = parseInt(document.getElementById('f_rest_hr').value);
+            if (!maxHr || !restHr || maxHr <= restHr) {
+                document.getElementById('zonesPreview').style.display = 'none';
+                return;
+            }
+            const zones = calcZones(maxHr, restHr);
+            document.getElementById('zonesContent').innerHTML = zones.map(z =>
+                `<div class="zone-row"><span class="zone-name">${z.name}</span><span class="zone-range">${z.lo}–${z.hi} bpm</span></div>`
+            ).join('');
+            document.getElementById('zonesPreview').style.display = 'block';
+        }
+
+        async function openProfile() {
+            const data = await fetchJSON('/profile/');
+            if (data) {
+                currentProfile = data;
+                document.getElementById('f_max_hr').value = data.max_hr || '';
+                document.getElementById('f_rest_hr').value = data.rest_hr || '';
+                document.getElementById('f_age').value = data.age || '';
+                document.getElementById('f_weight').value = data.weight_kg || '';
+                document.getElementById('f_sport').value = data.primary_sport || 'Run';
+                document.getElementById('f_level').value = data.experience_level || 'intermediate';
+                updateZonesPreview();
+            }
+            document.getElementById('profileModal').classList.add('open');
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').classList.remove('open');
+        }
+
+        async function saveProfile() {
+            const payload = {
+                max_hr: parseInt(document.getElementById('f_max_hr').value) || null,
+                rest_hr: parseInt(document.getElementById('f_rest_hr').value) || null,
+                age: parseInt(document.getElementById('f_age').value) || null,
+                weight_kg: parseFloat(document.getElementById('f_weight').value) || null,
+                primary_sport: document.getElementById('f_sport').value,
+                experience_level: document.getElementById('f_level').value,
+            };
+
+            const result = await fetchJSON('/profile/', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (result) {
+                closeProfile();
+                refreshAll();
+            }
+        }
+
+        // Actualizar zonas en tiempo real
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('f_max_hr').addEventListener('input', updateZonesPreview);
+            document.getElementById('f_rest_hr').addEventListener('input', updateZonesPreview);
+        });
+
+        // Cerrar modal al click fuera
+        document.getElementById('profileModal').addEventListener('click', function(e) {
+            if (e.target === this) closeProfile();
+        });
+
         function renderDecision(data) {
             if (!data || !data.decision) {
                 document.getElementById('decisionContainer').innerHTML = '<div class="decision-card">Error cargando decisión</div>';
@@ -134,9 +373,7 @@
             }
             const d = data.decision;
             const color = getActionColor(d.action);
-
-            document.getElementById('athleteName').textContent = data.athlete || '';
-
+            document.getElementById('athleteName').textContent = (data.athlete || '') + ' ✏️';
             document.getElementById('decisionContainer').innerHTML = `
                 <div class="decision-card ${d.action}">
                     <div class="decision-headline">${d.headline}</div>
@@ -150,53 +387,111 @@
                     <div class="suggestions">
                         ${(d.suggestions || []).map(s => `<div class="suggestion">${s}</div>`).join('')}
                     </div>
-                </div>
-            `;
+                </div>`;
         }
 
-        function renderState(data) {
-            if (!data || !data.state) return;
-            const s = data.state;
-            document.getElementById('athleteName').textContent = data.athlete || '';
+        
+function renderState(data) {
+    if (!data || !data.state) return;
+    const s = data.state;
+    const readinessColor = getReadinessColor(s.readiness_score);
 
-            const readinessColor = getReadinessColor(s.readiness_score);
-            const pct = s.readiness_score + '%';
+    document.getElementById('readinessContainer').innerHTML = `
+        <div class="readiness-circle" style="--color:${readinessColor}; --pct:${s.readiness_score}%">
+            <div class="readiness-value" style="color:${readinessColor}">${Math.round(s.readiness_score)}</div>
+            <div class="readiness-label">Readiness</div>
+        </div>
+        <span class="risk-badge risk-${s.injury_risk}">${s.injury_risk} risk</span>
+        <div class="readiness-tip">
+            <strong style="color:#aaa">¿Qué es Readiness?</strong><br>
+            Qué tan listo está tu cuerpo para entrenar hoy. 
+            <span style="color:${readinessColor}">
+                ${s.readiness_score >= 70 ? '✅ Estás recuperado — buen momento para entrenar fuerte.' 
+                : s.readiness_score >= 40 ? '⚠️ Recuperación parcial — entrena con moderación.' 
+                : '🔴 Cuerpo fatigado — prioriza recuperación.'}
+            </span>
+        </div>`;
 
-            document.getElementById('readinessContainer').innerHTML = `
-                <div class="readiness-circle" style="--color:${readinessColor}; --pct:${pct}">
-                    <div class="readiness-value" style="color:${readinessColor}">${Math.round(s.readiness_score)}</div>
-                    <div class="readiness-label">Readiness</div>
+    document.getElementById('statsContainer').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-label">
+                Fatiga Aguda (ATL)
+                <span class="tooltip-icon">?</span>
+            </div>
+            <div class="stat-value">${s.acute_load_atl}</div>
+            <div class="stat-detail">Últimos 7 días</div>
+            <div class="tooltip-box">
+                <strong>Fatiga Aguda (ATL)</strong><br>
+                Cuánto has entrenado en los últimos 7 días. 
+                Un número alto significa que tu cuerpo está absorbiendo mucha carga recientemente.
+                <div class="tooltip-range">
+                    🟢 Bajo (&lt;30) — Semana liviana<br>
+                    🟡 Medio (30–60) — Carga normal<br>
+                    🔴 Alto (&gt;60) — Semana muy exigente
                 </div>
-                <span class="risk-badge risk-${s.injury_risk}">${s.injury_risk} risk</span>
-            `;
+            </div>
+        </div>
 
-            document.getElementById('statsContainer').innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-label">Fatiga Aguda (ATL)</div>
-                    <div class="stat-value">${s.acute_load_atl}</div>
-                    <div class="stat-detail">Últimos 7 días</div>
+        <div class="stat-card">
+            <div class="stat-label">
+                Fitness Crónica (CTL)
+                <span class="tooltip-icon">?</span>
+            </div>
+            <div class="stat-value">${s.chronic_load_ctl}</div>
+            <div class="stat-detail">Últimos 42 días</div>
+            <div class="tooltip-box">
+                <strong>Fitness Crónica (CTL)</strong><br>
+                Tu nivel de forma física acumulada en los últimos 42 días. 
+                Sube lentamente con entrenamiento consistente. Es tu "base de fitness".
+                <div class="tooltip-range">
+                    🟢 Alto — Llevas semanas entrenando bien<br>
+                    🔴 Bajo — Poca consistencia reciente
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">Fitness Crónica (CTL)</div>
-                    <div class="stat-value">${s.chronic_load_ctl}</div>
-                    <div class="stat-detail">Últimos 42 días</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">
+                Balance (TSB)
+                <span class="tooltip-icon">?</span>
+            </div>
+            <div class="stat-value" style="color:${s.stress_balance_tsb >= 0 ? '#00cc66' : '#ff6b6b'}">${s.stress_balance_tsb}</div>
+            <div class="stat-detail">${s.stress_balance_tsb >= 0 ? 'Descansado' : 'Fatigado'}</div>
+            <div class="tooltip-box">
+                <strong>Balance de Entrenamiento (TSB)</strong><br>
+                La diferencia entre tu fitness y tu fatiga actual. 
+                Negativo = más cansado que en forma. Positivo = fresco y listo.
+                <div class="tooltip-range">
+                    🟢 &gt;5 — Listo para competir o sesión fuerte<br>
+                    🟡 -10 a 5 — Zona de entrenamiento normal<br>
+                    🔴 &lt;-10 — Fatigado, riesgo de sobreentrenamiento
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">Balance (TSB)</div>
-                    <div class="stat-value" style="color:${s.stress_balance_tsb >= 0 ? '#00cc66' : '#ff6b6b'}">${s.stress_balance_tsb}</div>
-                    <div class="stat-detail">${s.stress_balance_tsb >= 0 ? 'Descansado' : 'Fatigado'}</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">
+                ACWR
+                <span class="tooltip-icon">?</span>
+            </div>
+            <div class="stat-value" style="color:${s.acwr > 1.3 ? '#ff6b6b' : s.acwr >= 0.8 ? '#00cc66' : '#ffaa00'}">${s.acwr}</div>
+            <div class="stat-detail">${s.acwr > 1.5 ? 'Peligro' : s.acwr > 1.3 ? 'Elevado' : s.acwr >= 0.8 ? 'Óptimo' : 'Bajo'}</div>
+            <div class="tooltip-box">
+                <strong>Ratio Carga Aguda/Crónica</strong><br>
+                Compara lo que entrenaste esta semana vs. tu promedio habitual. 
+                Subir demasiado rápido es la principal causa de lesión.
+                <div class="tooltip-range">
+                    🔴 &lt;0.8 — Muy poco, perdiendo forma<br>
+                    🟢 0.8–1.3 — Zona segura y óptima<br>
+                    🟡 1.3–1.5 — Elevado, con cuidado<br>
+                    🔴 &gt;1.5 — Peligro de lesión
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">ACWR</div>
-                    <div class="stat-value" style="color:${s.acwr > 1.3 ? '#ff6b6b' : s.acwr >= 0.8 ? '#00cc66' : '#ffaa00'}">${s.acwr}</div>
-                    <div class="stat-detail">${s.acwr > 1.5 ? 'Peligro' : s.acwr > 1.3 ? 'Elevado' : s.acwr >= 0.8 ? 'Óptimo' : 'Bajo'}</div>
-                </div>
-            `;
-        }
+            </div>
+        </div>`;
+}
 
         function renderActivities(data) {
             if (!data || !data.activities) return;
-
             const rows = data.activities.map(a => `
                 <div class="activity-row">
                     <div>
@@ -207,17 +502,13 @@
                     <div>${a.duration_min} min</div>
                     <div class="hr-value">${a.avg_hr ? a.avg_hr + ' bpm' : '—'}</div>
                     <div class="col-hide"><span class="activity-type">${a.type}</span></div>
-                </div>
-            `).join('');
-
+                </div>`).join('');
             document.getElementById('activitiesContainer').innerHTML = `
                 <div class="section-title">Actividades Recientes</div>
                 <div class="activity-row header">
                     <div>Actividad</div><div>Distancia</div><div>Duración</div><div>HR Prom</div>
                     <div class="col-hide">Tipo</div>
-                </div>
-                ${rows}
-            `;
+                </div>${rows}`;
         }
 
         async function refreshAll() {
