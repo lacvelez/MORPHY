@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MORPHY — Training Decision Engine</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
@@ -28,12 +29,12 @@
         .suggestions { display: flex; flex-direction: column; gap: 8px; }
         .suggestion { background: rgba(255,255,255,0.04); padding: 10px 14px; border-radius: 8px; font-size: 14px; color: #ccc; border-left: 3px solid #333; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 25px; }
-        .stat-card { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 20px; text-align: center; transition: transform 0.2s, border-color 0.2s; }
+        .stat-card { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 20px; text-align: center; transition: transform 0.2s, border-color 0.2s; position: relative; }
         .stat-card:hover { transform: translateY(-2px); border-color: #3a3a5e; }
         .stat-value { font-size: 36px; font-weight: 800; margin-bottom: 4px; }
         .stat-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
         .stat-detail { font-size: 11px; color: #555; }
-        .readiness-card { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 25px; }
+        .readiness-card { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 25px; position: relative; }
         .readiness-circle { width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; flex-direction: column; position: relative; }
         .readiness-circle::before { content: ''; position: absolute; inset: 0; border-radius: 50%; padding: 4px; background: conic-gradient(var(--color) var(--pct), #2a2a3e var(--pct)); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px)); }
         .readiness-value { font-size: 42px; font-weight: 800; }
@@ -84,6 +85,24 @@
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
         .zones-tip { font-size: 12px; color: #555; text-align: center; margin-top: 8px; }
 
+        /* Tooltips */
+        .tooltip-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: #2a2a3e; color: #666; font-size: 10px; cursor: help; margin-left: 6px; vertical-align: middle; border: 1px solid #3a3a5e; flex-shrink: 0; }
+        .tooltip-icon:hover { background: #3a3a5e; color: #aaa; }
+        .tooltip-box { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: #1e1e30; border: 1px solid #3a3a5e; border-radius: 10px; padding: 12px 14px; width: 220px; font-size: 12px; color: #ccc; line-height: 1.5; z-index: 50; text-align: left; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .tooltip-box::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #3a3a5e; }
+        .stat-card:hover .tooltip-box { display: block; }
+        .tooltip-range { margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a2a3e; font-size: 11px; color: #777; }
+        .readiness-tip { margin-top: 12px; font-size: 12px; color: #555; line-height: 1.5; text-align: left; background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px 12px; }
+
+        /* Chart */
+        .chart-section { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 20px; margin-top: 25px; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+        .chart-title { font-size: 16px; font-weight: 600; }
+        .chart-tabs { display: flex; gap: 6px; }
+        .chart-tab { padding: 5px 12px; border-radius: 6px; border: 1px solid #2a2a3e; background: transparent; color: #666; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+        .chart-tab.active { background: #1a1a2e; border-color: #7b2ff7; color: #a78bfa; }
+        .chart-wrapper { position: relative; height: 220px; }
+
         @media (max-width: 600px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .activity-row { grid-template-columns: 2fr 1fr 1fr; }
@@ -91,79 +110,6 @@
             .form-grid { grid-template-columns: 1fr; }
             .form-group.full { grid-column: span 1; }
         }
-        
-        .stat-card { position: relative; }
-
-        .tooltip-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 16px; height: 16px;
-            border-radius: 50%;
-            background: #2a2a3e;
-            color: #666;
-            font-size: 10px;
-            cursor: help;
-            margin-left: 6px;
-            vertical-align: middle;
-            border: 1px solid #3a3a5e;
-            flex-shrink: 0;
-        }
-
-        .tooltip-icon:hover { background: #3a3a5e; color: #aaa; }
-
-        .tooltip-box {
-            display: none;
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1e1e30;
-            border: 1px solid #3a3a5e;
-            border-radius: 10px;
-            padding: 12px 14px;
-            width: 220px;
-            font-size: 12px;
-            color: #ccc;
-            line-height: 1.5;
-            z-index: 50;
-            text-align: left;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-        }
-
-        .tooltip-box::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 6px solid transparent;
-            border-top-color: #3a3a5e;
-        }
-
-        .stat-card:hover .tooltip-box { display: block; }
-
-        .tooltip-range {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #2a2a3e;
-            font-size: 11px;
-            color: #777;
-        }
-
-        .readiness-card { position: relative; }
-
-        .readiness-tip {
-            margin-top: 12px;
-            font-size: 12px;
-            color: #555;
-            line-height: 1.5;
-            text-align: left;
-            background: rgba(255,255,255,0.03);
-            border-radius: 8px;
-            padding: 10px 12px;
-        }
-
     </style>
 </head>
 <body>
@@ -204,6 +150,21 @@
         <div class="activities-section" id="activitiesContainer">
             <div class="loading"><div class="spinner"></div>Cargando actividades...</div>
         </div>
+
+        <!-- Gráfica histórica — FUERA de activitiesContainer -->
+        <div class="chart-section" id="chartSection">
+            <div class="chart-header">
+                <div class="chart-title">Evolución de métricas — últimos 42 días</div>
+                <div class="chart-tabs">
+                    <button class="chart-tab active" onclick="switchChart('atl_ctl', event)">ATL / CTL</button>
+                    <button class="chart-tab" onclick="switchChart('tsb', event)">Balance (TSB)</button>
+                    <button class="chart-tab" onclick="switchChart('acwr', event)">ACWR</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="metricsChart"></canvas>
+            </div>
+        </div>
     </div>
 
     <!-- Modal Perfil -->
@@ -211,7 +172,6 @@
         <div class="modal">
             <div class="modal-title">Mi Perfil</div>
             <div class="modal-subtitle">Estos datos mejoran la precisión del motor de decisión</div>
-
             <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">FC Máxima (bpm)</label>
@@ -249,13 +209,11 @@
                     </select>
                 </div>
             </div>
-
             <div class="zones-preview" id="zonesPreview" style="display:none">
                 <div class="zones-title">Zonas de entrenamiento</div>
                 <div id="zonesContent"></div>
                 <div class="zones-tip">Basadas en tu FC de reserva (Karvonen)</div>
             </div>
-
             <div class="modal-actions">
                 <button class="btn" onclick="closeProfile()">Cancelar</button>
                 <button class="btn btn-primary" onclick="saveProfile()">Guardar perfil</button>
@@ -266,6 +224,8 @@
     <script>
         const API = '';
         let currentProfile = {};
+        let metricsChart = null;
+        let historyData = null;
 
         async function fetchJSON(url, options = {}) {
             try {
@@ -342,26 +302,19 @@
                 primary_sport: document.getElementById('f_sport').value,
                 experience_level: document.getElementById('f_level').value,
             };
-
             const result = await fetchJSON('/profile/', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-
-            if (result) {
-                closeProfile();
-                refreshAll();
-            }
+            if (result) { closeProfile(); refreshAll(); }
         }
 
-        // Actualizar zonas en tiempo real
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('f_max_hr').addEventListener('input', updateZonesPreview);
             document.getElementById('f_rest_hr').addEventListener('input', updateZonesPreview);
         });
 
-        // Cerrar modal al click fuera
         document.getElementById('profileModal').addEventListener('click', function(e) {
             if (e.target === this) closeProfile();
         });
@@ -390,112 +343,57 @@
                 </div>`;
         }
 
-        
-function renderState(data) {
-    if (!data || !data.state) return;
-    const s = data.state;
-    const readinessColor = getReadinessColor(s.readiness_score);
-
-    document.getElementById('readinessContainer').innerHTML = `
-        <div class="readiness-circle" style="--color:${readinessColor}; --pct:${s.readiness_score}%">
-            <div class="readiness-value" style="color:${readinessColor}">${Math.round(s.readiness_score)}</div>
-            <div class="readiness-label">Readiness</div>
-        </div>
-        <span class="risk-badge risk-${s.injury_risk}">${s.injury_risk} risk</span>
-        <div class="readiness-tip">
-            <strong style="color:#aaa">¿Qué es Readiness?</strong><br>
-            Qué tan listo está tu cuerpo para entrenar hoy. 
-            <span style="color:${readinessColor}">
-                ${s.readiness_score >= 70 ? '✅ Estás recuperado — buen momento para entrenar fuerte.' 
-                : s.readiness_score >= 40 ? '⚠️ Recuperación parcial — entrena con moderación.' 
-                : '🔴 Cuerpo fatigado — prioriza recuperación.'}
-            </span>
-        </div>`;
-
-    document.getElementById('statsContainer').innerHTML = `
-        <div class="stat-card">
-            <div class="stat-label">
-                Fatiga Aguda (ATL)
-                <span class="tooltip-icon">?</span>
-            </div>
-            <div class="stat-value">${s.acute_load_atl}</div>
-            <div class="stat-detail">Últimos 7 días</div>
-            <div class="tooltip-box">
-                <strong>Fatiga Aguda (ATL)</strong><br>
-                Cuánto has entrenado en los últimos 7 días. 
-                Un número alto significa que tu cuerpo está absorbiendo mucha carga recientemente.
-                <div class="tooltip-range">
-                    🟢 Bajo (&lt;30) — Semana liviana<br>
-                    🟡 Medio (30–60) — Carga normal<br>
-                    🔴 Alto (&gt;60) — Semana muy exigente
+        function renderState(data) {
+            if (!data || !data.state) return;
+            const s = data.state;
+            const readinessColor = getReadinessColor(s.readiness_score);
+            document.getElementById('readinessContainer').innerHTML = `
+                <div class="readiness-circle" style="--color:${readinessColor}; --pct:${s.readiness_score}%">
+                    <div class="readiness-value" style="color:${readinessColor}">${Math.round(s.readiness_score)}</div>
+                    <div class="readiness-label">Readiness</div>
                 </div>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-label">
-                Fitness Crónica (CTL)
-                <span class="tooltip-icon">?</span>
-            </div>
-            <div class="stat-value">${s.chronic_load_ctl}</div>
-            <div class="stat-detail">Últimos 42 días</div>
-            <div class="tooltip-box">
-                <strong>Fitness Crónica (CTL)</strong><br>
-                Tu nivel de forma física acumulada en los últimos 42 días. 
-                Sube lentamente con entrenamiento consistente. Es tu "base de fitness".
-                <div class="tooltip-range">
-                    🟢 Alto — Llevas semanas entrenando bien<br>
-                    🔴 Bajo — Poca consistencia reciente
+                <span class="risk-badge risk-${s.injury_risk}">${s.injury_risk} risk</span>
+                <div class="readiness-tip">
+                    <strong style="color:#aaa">¿Qué es Readiness?</strong><br>
+                    Qué tan listo está tu cuerpo para entrenar hoy.
+                    <span style="color:${readinessColor}">
+                        ${s.readiness_score >= 70 ? '✅ Estás recuperado — buen momento para entrenar fuerte.'
+                        : s.readiness_score >= 40 ? '⚠️ Recuperación parcial — entrena con moderación.'
+                        : '🔴 Cuerpo fatigado — prioriza recuperación.'}
+                    </span>
+                </div>`;
+            document.getElementById('statsContainer').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Fatiga Aguda (ATL) <span class="tooltip-icon">?</span></div>
+                    <div class="stat-value">${s.acute_load_atl}</div>
+                    <div class="stat-detail">Últimos 7 días</div>
+                    <div class="tooltip-box"><strong>Fatiga Aguda (ATL)</strong><br>Cuánto has entrenado en los últimos 7 días. Un número alto significa que tu cuerpo está absorbiendo mucha carga recientemente.<div class="tooltip-range">🟢 Bajo (&lt;30) — Semana liviana<br>🟡 Medio (30–60) — Carga normal<br>🔴 Alto (&gt;60) — Semana muy exigente</div></div>
                 </div>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-label">
-                Balance (TSB)
-                <span class="tooltip-icon">?</span>
-            </div>
-            <div class="stat-value" style="color:${s.stress_balance_tsb >= 0 ? '#00cc66' : '#ff6b6b'}">${s.stress_balance_tsb}</div>
-            <div class="stat-detail">${s.stress_balance_tsb >= 0 ? 'Descansado' : 'Fatigado'}</div>
-            <div class="tooltip-box">
-                <strong>Balance de Entrenamiento (TSB)</strong><br>
-                La diferencia entre tu fitness y tu fatiga actual. 
-                Negativo = más cansado que en forma. Positivo = fresco y listo.
-                <div class="tooltip-range">
-                    🟢 &gt;5 — Listo para competir o sesión fuerte<br>
-                    🟡 -10 a 5 — Zona de entrenamiento normal<br>
-                    🔴 &lt;-10 — Fatigado, riesgo de sobreentrenamiento
+                <div class="stat-card">
+                    <div class="stat-label">Fitness Crónica (CTL) <span class="tooltip-icon">?</span></div>
+                    <div class="stat-value">${s.chronic_load_ctl}</div>
+                    <div class="stat-detail">Últimos 42 días</div>
+                    <div class="tooltip-box"><strong>Fitness Crónica (CTL)</strong><br>Tu nivel de forma física acumulada en los últimos 42 días. Sube lentamente con entrenamiento consistente. Es tu "base de fitness".<div class="tooltip-range">🟢 Alto — Llevas semanas entrenando bien<br>🔴 Bajo — Poca consistencia reciente</div></div>
                 </div>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-label">
-                ACWR
-                <span class="tooltip-icon">?</span>
-            </div>
-            <div class="stat-value" style="color:${s.acwr > 1.3 ? '#ff6b6b' : s.acwr >= 0.8 ? '#00cc66' : '#ffaa00'}">${s.acwr}</div>
-            <div class="stat-detail">${s.acwr > 1.5 ? 'Peligro' : s.acwr > 1.3 ? 'Elevado' : s.acwr >= 0.8 ? 'Óptimo' : 'Bajo'}</div>
-            <div class="tooltip-box">
-                <strong>Ratio Carga Aguda/Crónica</strong><br>
-                Compara lo que entrenaste esta semana vs. tu promedio habitual. 
-                Subir demasiado rápido es la principal causa de lesión.
-                <div class="tooltip-range">
-                    🔴 &lt;0.8 — Muy poco, perdiendo forma<br>
-                    🟢 0.8–1.3 — Zona segura y óptima<br>
-                    🟡 1.3–1.5 — Elevado, con cuidado<br>
-                    🔴 &gt;1.5 — Peligro de lesión
+                <div class="stat-card">
+                    <div class="stat-label">Balance (TSB) <span class="tooltip-icon">?</span></div>
+                    <div class="stat-value" style="color:${s.stress_balance_tsb >= 0 ? '#00cc66' : '#ff6b6b'}">${s.stress_balance_tsb}</div>
+                    <div class="stat-detail">${s.stress_balance_tsb >= 0 ? 'Descansado' : 'Fatigado'}</div>
+                    <div class="tooltip-box"><strong>Balance de Entrenamiento (TSB)</strong><br>La diferencia entre tu fitness y tu fatiga actual. Negativo = más cansado que en forma. Positivo = fresco y listo.<div class="tooltip-range">🟢 &gt;5 — Listo para competir o sesión fuerte<br>🟡 -10 a 5 — Zona de entrenamiento normal<br>🔴 &lt;-10 — Fatigado, riesgo de sobreentrenamiento</div></div>
                 </div>
-            </div>
-        </div>`;
-}
+                <div class="stat-card">
+                    <div class="stat-label">ACWR <span class="tooltip-icon">?</span></div>
+                    <div class="stat-value" style="color:${s.acwr > 1.3 ? '#ff6b6b' : s.acwr >= 0.8 ? '#00cc66' : '#ffaa00'}">${s.acwr}</div>
+                    <div class="stat-detail">${s.acwr > 1.5 ? 'Peligro' : s.acwr > 1.3 ? 'Elevado' : s.acwr >= 0.8 ? 'Óptimo' : 'Bajo'}</div>
+                    <div class="tooltip-box"><strong>Ratio Carga Aguda/Crónica</strong><br>Compara lo que entrenaste esta semana vs. tu promedio habitual. Subir demasiado rápido es la principal causa de lesión.<div class="tooltip-range">🔴 &lt;0.8 — Muy poco, perdiendo forma<br>🟢 0.8–1.3 — Zona segura y óptima<br>🟡 1.3–1.5 — Elevado, con cuidado<br>🔴 &gt;1.5 — Peligro de lesión</div></div>
+                </div>`;
+        }
 
         function renderActivities(data) {
             if (!data || !data.activities) return;
             const rows = data.activities.map(a => `
                 <div class="activity-row">
-                    <div>
-                        <span class="activity-name">${a.name}</span><br>
+                    <div><span class="activity-name">${a.name}</span><br>
                         <span style="color:#555; font-size:11px;">${new Date(a.date).toLocaleDateString('es-CO', {weekday:'short', month:'short', day:'numeric'})}</span>
                     </div>
                     <div>${a.distance_km} km</div>
@@ -511,6 +409,68 @@ function renderState(data) {
                 </div>${rows}`;
         }
 
+        // ── Chart histórico ──
+        async function loadHistory() {
+            const data = await fetchJSON('/morphy/history');
+            if (!data || !data.history) return;
+            historyData = data.history;
+            renderChart('atl_ctl');
+        }
+
+        function switchChart(type, e) {
+            document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+            if (e && e.target) e.target.classList.add('active');
+            renderChart(type);
+        }
+
+        function renderChart(type) {
+            if (!historyData) return;
+            const labels = historyData.map(d => { const [,m,day] = d.date.split('-'); return `${day}/${m}`; });
+            if (metricsChart) { metricsChart.destroy(); metricsChart = null; }
+            const ctx = document.getElementById('metricsChart').getContext('2d');
+            const gridColor = 'rgba(255,255,255,0.04)';
+            const textColor = '#555';
+            let datasets = [];
+
+            if (type === 'atl_ctl') {
+                datasets = [
+                    { label: 'ATL (Fatiga aguda)', data: historyData.map(d => d.atl), borderColor: '#ff6b6b', backgroundColor: 'rgba(255,107,107,0.08)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 },
+                    { label: 'CTL (Fitness crónica)', data: historyData.map(d => d.ctl), borderColor: '#00aaff', backgroundColor: 'rgba(0,170,255,0.08)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }
+                ];
+            } else if (type === 'tsb') {
+                const tsbData = historyData.map(d => d.tsb);
+                datasets = [{ label: 'TSB (Balance)', data: tsbData, borderColor: '#a78bfa', backgroundColor: tsbData.map(v => v >= 0 ? 'rgba(0,204,102,0.15)' : 'rgba(255,107,107,0.15)'), borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }];
+            } else if (type === 'acwr') {
+                datasets = [{ label: 'ACWR', data: historyData.map(d => d.acwr), borderColor: '#ffaa00', backgroundColor: 'rgba(255,170,0,0.08)', borderWidth: 2, fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }];
+            }
+
+            metricsChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#888', font: { size: 11 }, boxWidth: 12 } },
+                        tooltip: {
+                            backgroundColor: '#1e1e30', borderColor: '#3a3a5e', borderWidth: 1,
+                            titleColor: '#ccc', bodyColor: '#aaa',
+                            callbacks: {
+                                afterBody: type === 'acwr' ? (items) => {
+                                    const v = items[0].raw;
+                                    return v > 1.5 ? '⚠️ Peligro de lesión' : v > 1.3 ? '⚠️ Zona de precaución' : v >= 0.8 ? '✅ Zona óptima' : '📉 Carga baja';
+                                } : undefined
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: textColor, font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: gridColor } },
+                        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor }, ...(type === 'acwr' ? { min: 0 } : {}) }
+                    }
+                }
+            });
+        }
+
         async function refreshAll() {
             document.getElementById('decisionContainer').innerHTML = '<div class="loading"><div class="spinner"></div>Analizando...</div>';
             const [decision, state, activities] = await Promise.all([
@@ -521,6 +481,7 @@ function renderState(data) {
             renderDecision(decision);
             renderState(state);
             renderActivities(activities);
+            loadHistory();
         }
 
         async function syncActivities() {

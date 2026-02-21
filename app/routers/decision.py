@@ -224,3 +224,104 @@ async def get_training_decision(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         logger.exception("Error generando decisión")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@router.get("/history")
+async def get_metrics_history(db: AsyncSession = Depends(get_db)):
+    try:
+        result = await db.execute(select(User).limit(1))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="No hay usuario.")
+
+        # Traer todas las actividades de los últimos 84 días (necesitamos más contexto)
+        cutoff = datetime.utcnow() - timedelta(days=84)
+        act_result = await db.execute(
+            select(Activity)
+            .where(Activity.user_id == user.id)
+            .where(Activity.start_date >= cutoff)
+            .order_by(Activity.start_date.asc())
+        )
+        all_activities = act_result.scalars().all()
+
+        max_hr = float(user.max_hr or 182)
+        rest_hr = float(user.rest_hr or 50)
+
+        # Calcular estado para cada uno de los últimos 42 días
+        history = []
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        for days_back in range(41, -1, -1):  # 41 días atrás hasta hoy
+            target_date = today - timedelta(days=days_back)
+            end_of_day = target_date + timedelta(days=1)
+
+            # Solo actividades hasta ese día
+            activities_until_date = [
+                a for a in all_activities
+                if a.start_date is not None and
+                a.start_date.replace(tzinfo=None) < end_of_day
+            ]
+
+            if activities_until_date:
+                # Recalcular con fecha relativa al día objetivo
+                state = _calculate_state_for_date(
+                    activities_until_date, target_date, max_hr, rest_hr
+                )
+            else:
+                state = {"acute_load_atl": 0, "chronic_load_ctl": 0,
+                         "stress_balance_tsb": 0, "acwr": 0}
+
+            history.append({
+                "date": target_date.strftime("%Y-%m-%d"),
+                "atl": state["acute_load_atl"],
+                "ctl": state["chronic_load_ctl"],
+                "tsb": state["stress_balance_tsb"],
+                "acwr": state["acwr"],
+            })
+
+        return {"athlete": user.name, "history": history}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error calculando historial")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
+def _calculate_state_for_date(activities, reference_date, max_hr, rest_hr):
+    """Igual que calculate_athlete_state pero relativo a una fecha específica."""
+    def trimp(a):
+        duration = float(a.duration_min or 0)
+        hr = float(a.avg_hr or 0)
+        if duration <= 0:
+            return 0.0
+        if hr <= 0:
+            return duration * 0.5
+        hrr = (hr - rest_hr) / (max_hr - rest_hr)
+        hrr = max(0.1, min(1.0, hrr))
+        return duration * hrr * (0.64 * 2.718 ** (1.92 * hrr))
+
+    def days_ago(a):
+        act_date = a.start_date.replace(tzinfo=None)
+        return (reference_date - act_date).total_seconds() / 86400
+
+    acute_load = chronic_load = 0.0
+    chronic_count = 0
+
+    for a in activities:
+        d = days_ago(a)
+        if d < 0:
+            continue
+        t = trimp(a)
+        if d <= 7:
+            acute_load += t * math.exp(-d / 7.0)
+        if d <= 42:
+            chronic_load += t * math.exp(-d / 42.0)
+            chronic_count += 1
+
+    atl = safe_round(acute_load * (7 / max(chronic_count, 1)) * 0.6, 1)
+    ctl = safe_round(chronic_load * (42 / max(chronic_count * 6, 1)) * 0.15, 1)
+    tsb = safe_round(ctl - atl, 1)
+    acwr = safe_round(atl / ctl, 2) if ctl > 0 else 0.0
+
+    return {"acute_load_atl": atl, "chronic_load_ctl": ctl,
+            "stress_balance_tsb": tsb, "acwr": acwr}
