@@ -63,6 +63,27 @@
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .connected-badge { font-size: 12px; color: #00cc66; display: flex; align-items: center; }
 
+        /* Feedback */
+        .feedback-section { border-top: 1px solid #2a2a3e; padding-top: 20px; margin-top: 20px; }
+        .feedback-label { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .feedback-buttons { display: flex; gap: 10px; }
+        .btn-feedback { padding: 10px 24px; border-radius: 8px; border: 1px solid; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: transparent; }
+        .btn-followed { border-color: #00cc66; color: #00cc66; }
+        .btn-followed:hover { background: rgba(0,204,102,0.15); }
+        .btn-followed.active { background: rgba(0,204,102,0.15); }
+        .btn-ignored { border-color: #ff6b6b; color: #ff6b6b; }
+        .btn-ignored:hover { background: rgba(255,107,107,0.15); }
+        .btn-ignored.active { background: rgba(255,107,107,0.15); }
+        .feedback-thanks { font-size: 13px; color: #555; margin-top: 10px; display: none; }
+
+        /* Feedback stats */
+        .feedback-stats-card { background: #12121e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 20px; margin-bottom: 25px; }
+        .feedback-stats-title { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+        .follow-rate-bar { display: flex; align-items: center; gap: 12px; }
+        .follow-rate-track { flex: 1; height: 8px; background: #2a2a3e; border-radius: 4px; overflow: hidden; }
+        .follow-rate-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #00cc66, #44dd88); transition: width 0.6s ease; }
+        .follow-rate-numbers { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #555; }
+
         /* Modal */
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
         .modal-overlay.open { display: flex; }
@@ -136,6 +157,8 @@
             <div class="loading"><div class="spinner"></div>Analizando tu entrenamiento...</div>
         </div>
 
+        <div id="feedbackStatsContainer"></div>
+
         <div style="display: grid; grid-template-columns: 200px 1fr; gap: 16px; margin-bottom: 25px;">
             <div class="readiness-card" id="readinessContainer">
                 <div class="loading"><div class="spinner"></div></div>
@@ -151,7 +174,6 @@
             <div class="loading"><div class="spinner"></div>Cargando actividades...</div>
         </div>
 
-        <!-- Gráfica histórica — FUERA de activitiesContainer -->
         <div class="chart-section" id="chartSection">
             <div class="chart-header">
                 <div class="chart-title">Evolución de métricas — últimos 42 días</div>
@@ -223,6 +245,7 @@
 
     <script>
         const API = '';
+        let currentDecision = null;
         let currentProfile = {};
         let metricsChart = null;
         let historyData = null;
@@ -239,8 +262,7 @@
         }
 
         function getActionColor(action) {
-            const colors = { rest: '#ff4444', reduce: '#ffaa00', maintain: '#00cc66', increase: '#00aaff' };
-            return colors[action] || '#888';
+            return { rest: '#ff4444', reduce: '#ffaa00', maintain: '#00cc66', increase: '#00aaff' }[action] || '#888';
         }
 
         function getReadinessColor(score) {
@@ -249,6 +271,7 @@
             return '#ff4444';
         }
 
+        // ── Profile modal ──
         function calcZones(maxHr, restHr) {
             const hrr = maxHr - restHr;
             return [
@@ -319,6 +342,7 @@
             if (e.target === this) closeProfile();
         });
 
+        // ── Decision ──
         function renderDecision(data) {
             if (!data || !data.decision) {
                 document.getElementById('decisionContainer').innerHTML = '<div class="decision-card">Error cargando decisión</div>';
@@ -326,6 +350,7 @@
             }
             const d = data.decision;
             const color = getActionColor(d.action);
+            currentDecision = { action: d.action, state: data.state };
             document.getElementById('athleteName').textContent = (data.athlete || '') + ' ✏️';
             document.getElementById('decisionContainer').innerHTML = `
                 <div class="decision-card ${d.action}">
@@ -340,9 +365,67 @@
                     <div class="suggestions">
                         ${(d.suggestions || []).map(s => `<div class="suggestion">${s}</div>`).join('')}
                     </div>
+                    <div class="feedback-section">
+                        <div class="feedback-label">¿Seguiste esta recomendación?</div>
+                        <div class="feedback-buttons">
+                            <button class="btn-feedback btn-followed" onclick="sendFeedback(true, this)">✓ Sí, la seguí</button>
+                            <button class="btn-feedback btn-ignored" onclick="sendFeedback(false, this)">✗ La ignoré</button>
+                        </div>
+                        <div class="feedback-thanks" id="feedbackThanks">Gracias — el motor lo tendrá en cuenta.</div>
+                    </div>
                 </div>`;
         }
 
+        // ── Feedback ──
+        async function sendFeedback(followed, btn) {
+            if (!currentDecision) return;
+            const s = currentDecision.state || {};
+            const payload = {
+                followed,
+                action: currentDecision.action,
+                acwr: s.acwr || null,
+                readiness: s.readiness_score || null,
+                tsb: s.stress_balance_tsb || null
+            };
+            try {
+                const r = await fetch('/feedback/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (r.ok) {
+                    btn.parentElement.querySelectorAll('.btn-feedback').forEach(b => b.disabled = true);
+                    btn.classList.add('active');
+                    document.getElementById('feedbackThanks').style.display = 'block';
+                    loadFeedbackStats();
+                }
+            } catch (e) { console.error('Error enviando feedback:', e); }
+        }
+
+        async function loadFeedbackStats() {
+            const data = await fetchJSON('/feedback/stats');
+            if (!data || data.total_decisions === 0) {
+                document.getElementById('feedbackStatsContainer').innerHTML = '';
+                return;
+            }
+            document.getElementById('feedbackStatsContainer').innerHTML = `
+                <div class="feedback-stats-card">
+                    <div class="feedback-stats-title">Historial de decisiones</div>
+                    <div class="follow-rate-bar">
+                        <span style="font-size:13px;color:#888;min-width:100px;">Seguidas: ${data.followed}/${data.total_decisions}</span>
+                        <div class="follow-rate-track">
+                            <div class="follow-rate-fill" style="width:${data.follow_rate}%"></div>
+                        </div>
+                        <span style="font-size:18px;font-weight:800;color:#00cc66;min-width:48px;">${data.follow_rate}%</span>
+                    </div>
+                    <div class="follow-rate-numbers">
+                        <span>${data.followed} seguidas</span>
+                        <span>${data.ignored} ignoradas</span>
+                    </div>
+                </div>`;
+        }
+
+        // ── State ──
         function renderState(data) {
             if (!data || !data.state) return;
             const s = data.state;
@@ -389,12 +472,13 @@
                 </div>`;
         }
 
+        // ── Activities ──
         function renderActivities(data) {
             if (!data || !data.activities) return;
             const rows = data.activities.map(a => `
                 <div class="activity-row">
                     <div><span class="activity-name">${a.name}</span><br>
-                        <span style="color:#555; font-size:11px;">${new Date(a.date).toLocaleDateString('es-CO', {weekday:'short', month:'short', day:'numeric'})}</span>
+                        <span style="color:#555;font-size:11px;">${new Date(a.date).toLocaleDateString('es-CO', {weekday:'short',month:'short',day:'numeric'})}</span>
                     </div>
                     <div>${a.distance_km} km</div>
                     <div>${a.duration_min} min</div>
@@ -409,7 +493,7 @@
                 </div>${rows}`;
         }
 
-        // ── Chart histórico ──
+        // ── Chart ──
         async function loadHistory() {
             const data = await fetchJSON('/morphy/history');
             if (!data || !data.history) return;
@@ -438,8 +522,7 @@
                     { label: 'CTL (Fitness crónica)', data: historyData.map(d => d.ctl), borderColor: '#00aaff', backgroundColor: 'rgba(0,170,255,0.08)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }
                 ];
             } else if (type === 'tsb') {
-                const tsbData = historyData.map(d => d.tsb);
-                datasets = [{ label: 'TSB (Balance)', data: tsbData, borderColor: '#a78bfa', backgroundColor: tsbData.map(v => v >= 0 ? 'rgba(0,204,102,0.15)' : 'rgba(255,107,107,0.15)'), borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }];
+                datasets = [{ label: 'TSB (Balance)', data: historyData.map(d => d.tsb), borderColor: '#a78bfa', backgroundColor: historyData.map(d => d.tsb >= 0 ? 'rgba(0,204,102,0.15)' : 'rgba(255,107,107,0.15)'), borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }];
             } else if (type === 'acwr') {
                 datasets = [{ label: 'ACWR', data: historyData.map(d => d.acwr), borderColor: '#ffaa00', backgroundColor: 'rgba(255,170,0,0.08)', borderWidth: 2, fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }];
             }
@@ -471,6 +554,7 @@
             });
         }
 
+        // ── Main ──
         async function refreshAll() {
             document.getElementById('decisionContainer').innerHTML = '<div class="loading"><div class="spinner"></div>Analizando...</div>';
             const [decision, state, activities] = await Promise.all([
@@ -482,6 +566,7 @@
             renderState(state);
             renderActivities(activities);
             loadHistory();
+            loadFeedbackStats();
         }
 
         async function syncActivities() {

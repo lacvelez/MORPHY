@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from app.database import engine, Base
 from app.models.models import User, Integration, Activity
-from app.routers import auth, decision, profile
+from app.routers import auth, decision, profile, feedback
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,8 +23,8 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(decision.router)
 app.include_router(profile.router)
+app.include_router(feedback.router)
 
-# Servir archivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
