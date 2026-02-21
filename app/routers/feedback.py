@@ -7,6 +7,7 @@ from datetime import datetime
 
 from app.database import get_db
 from app.models.models import User, DecisionFeedback
+from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
@@ -21,14 +22,13 @@ class FeedbackPayload(BaseModel):
 
 
 @router.post("/")
-async def save_feedback(payload: FeedbackPayload, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).limit(1))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="No hay usuario.")
-
+async def save_feedback(
+    payload: FeedbackPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     feedback = DecisionFeedback(
-        user_id=user.id,
+        user_id=current_user.id,
         date=datetime.utcnow(),
         action=payload.action,
         followed=payload.followed,
@@ -43,20 +43,18 @@ async def save_feedback(payload: FeedbackPayload, db: AsyncSession = Depends(get
 
 
 @router.get("/stats")
-async def get_feedback_stats(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).limit(1))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="No hay usuario.")
-
+async def get_feedback_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     total_q = await db.execute(
-        select(func.count()).where(DecisionFeedback.user_id == user.id)
+        select(func.count()).where(DecisionFeedback.user_id == current_user.id)
     )
     total = total_q.scalar() or 0
 
     followed_q = await db.execute(
         select(func.count()).where(
-            DecisionFeedback.user_id == user.id,
+            DecisionFeedback.user_id == current_user.id,
             DecisionFeedback.followed == True
         )
     )

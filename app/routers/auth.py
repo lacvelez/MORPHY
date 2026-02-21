@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
@@ -8,6 +8,7 @@ import httpx
 from app.config import settings
 from app.database import get_db
 from app.models.models import User, Integration, Activity
+from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -26,7 +27,11 @@ async def strava_connect():
 
 
 @router.get("/strava/callback")
-async def strava_callback(code: str = None, error: str = None, db: AsyncSession = Depends(get_db)):
+async def strava_callback(
+    code: str = None,
+    error: str = None,
+    db: AsyncSession = Depends(get_db)
+):
     if error:
         raise HTTPException(status_code=400, detail=f"Strava error: {error}")
     if not code:
@@ -48,34 +53,37 @@ async def strava_callback(code: str = None, error: str = None, db: AsyncSession 
 
     data = resp.json()
     athlete = data.get("athlete", {})
+    strava_athlete_id = athlete.get("id")
     name = f"{athlete.get('firstname', '')} {athlete.get('lastname', '')}".strip()
 
-    result = await db.execute(select(User).where(User.name == name))
-    user = result.scalar_one_or_none()
+    # Buscar usuario por athlete_id en integrations (más robusto que por nombre)
+    result = await db.execute(
+        select(Integration).where(
+            Integration.provider == "strava",
+            Integration.athlete_id == strava_athlete_id
+        )
+    )
+    existing_integration = result.scalar_one_or_none()
 
-    if not user:
+    if existing_integration:
+        # Usuario existente — actualizar tokens
+        user_result = await db.execute(
+            select(User).where(User.id == existing_integration.user_id)
+        )
+        user = user_result.scalar_one_or_none()
+        existing_integration.access_token = data["access_token"]
+        existing_integration.refresh_token = data["refresh_token"]
+        existing_integration.expires_at = data["expires_at"]
+    else:
+        # Usuario nuevo
         user = User(name=name)
         db.add(user)
         await db.flush()
 
-    result = await db.execute(
-        select(Integration).where(
-            Integration.user_id == user.id,
-            Integration.provider == "strava"
-        )
-    )
-    integration = result.scalar_one_or_none()
-
-    if integration:
-        integration.access_token = data["access_token"]
-        integration.refresh_token = data["refresh_token"]
-        integration.expires_at = data["expires_at"]
-        integration.athlete_id = athlete.get("id")
-    else:
         integration = Integration(
             user_id=user.id,
             provider="strava",
-            athlete_id=athlete.get("id"),
+            athlete_id=strava_athlete_id,
             access_token=data["access_token"],
             refresh_token=data["refresh_token"],
             expires_at=data["expires_at"]
@@ -83,18 +91,27 @@ async def strava_callback(code: str = None, error: str = None, db: AsyncSession 
         db.add(integration)
 
     await db.commit()
-    return {
-        "status": "connected",
-        "athlete": name,
-        "user_id": str(user.id),
-        "message": "Strava connected and saved to DB! Now try /auth/strava/sync"
-    }
+
+    # Setear cookie httponly con el user_id interno
+    response = RedirectResponse(url="/")
+    response.set_cookie(
+        key="morphy_user_id",
+        value=str(user.id),
+        httponly=True,       # JS no puede leerla
+        samesite="lax",      # Protección CSRF básica
+        max_age=60 * 60 * 24 * 30,  # 30 días
+    )
+    return response
 
 
 @router.get("/strava/sync")
-async def strava_sync(db: AsyncSession = Depends(get_db)):
+async def strava_sync(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     result = await db.execute(
         select(Integration).where(
+            Integration.user_id == current_user.id,
             Integration.provider == "strava",
             Integration.is_active == True
         )
@@ -125,7 +142,7 @@ async def strava_sync(db: AsyncSession = Depends(get_db)):
             continue
 
         activity = Activity(
-            user_id=integration.user_id,
+            user_id=current_user.id,
             strava_id=strava_id,
             name=a.get("name", "Unknown"),
             activity_type=a.get("type", "Unknown"),
@@ -151,9 +168,15 @@ async def strava_sync(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/strava/activities")
-async def strava_activities(db: AsyncSession = Depends(get_db)):
+async def strava_activities(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     result = await db.execute(
-        select(Activity).order_by(Activity.start_date.desc()).limit(10)
+        select(Activity)
+        .where(Activity.user_id == current_user.id)
+        .order_by(Activity.start_date.desc())
+        .limit(10)
     )
     activities = result.scalars().all()
 
@@ -161,6 +184,7 @@ async def strava_activities(db: AsyncSession = Depends(get_db)):
         return {"message": "No activities in DB. Run /auth/strava/sync first"}
 
     return {
+        "athlete": current_user.name,
         "total": len(activities),
         "activities": [
             {
@@ -181,9 +205,13 @@ async def strava_activities(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/strava/enrich")
-async def strava_enrich(db: AsyncSession = Depends(get_db)):
+async def strava_enrich(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     result = await db.execute(
         select(Integration).where(
+            Integration.user_id == current_user.id,
             Integration.provider == "strava",
             Integration.is_active == True
         )
@@ -194,6 +222,7 @@ async def strava_enrich(db: AsyncSession = Depends(get_db)):
 
     act_result = await db.execute(
         select(Activity).where(
+            Activity.user_id == current_user.id,
             Activity.avg_hr == None,
             Activity.strava_id != None
         )
@@ -254,9 +283,14 @@ async def strava_enrich(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/strava/debug/{strava_id}")
-async def strava_debug(strava_id: int, db: AsyncSession = Depends(get_db)):
+async def strava_debug(
+    strava_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     result = await db.execute(
         select(Integration).where(
+            Integration.user_id == current_user.id,
             Integration.provider == "strava",
             Integration.is_active == True
         )
@@ -289,14 +323,12 @@ async def strava_debug(strava_id: int, db: AsyncSession = Depends(get_db)):
 @router.get("/strava/webhook")
 async def strava_webhook_verify(request: Request):
     VERIFY_TOKEN = "morphy_webhook_2026"
-    
     params = request.query_params
     hub_mode = params.get("hub.mode")
     hub_challenge = params.get("hub.challenge")
     hub_verify_token = params.get("hub.verify_token")
-    
+
     if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN:
-        from fastapi.responses import JSONResponse
         return JSONResponse(
             content={"hub.challenge": hub_challenge},
             headers={"ngrok-skip-browser-warning": "true"}
@@ -307,15 +339,17 @@ async def strava_webhook_verify(request: Request):
 @router.post("/strava/webhook")
 async def strava_webhook_receive(request: Request, db: AsyncSession = Depends(get_db)):
     body = await request.json()
-
     object_type = body.get("object_type")
     aspect_type = body.get("aspect_type")
     object_id = body.get("object_id")
+    owner_id = body.get("owner_id")  # Strava athlete_id del dueño del evento
 
     if object_type == "activity" and aspect_type == "create":
+        # Buscar la integration por athlete_id (multi-usuario correcto)
         result = await db.execute(
             select(Integration).where(
                 Integration.provider == "strava",
+                Integration.athlete_id == owner_id,
                 Integration.is_active == True
             )
         )
@@ -355,3 +389,10 @@ async def strava_webhook_receive(request: Request, db: AsyncSession = Depends(ge
 
     return {"status": "ok"}
 
+
+@router.get("/logout")
+async def logout():
+    """Cierra la sesión eliminando la cookie."""
+    response = RedirectResponse(url="/auth/strava/connect")
+    response.delete_cookie("morphy_user_id")
+    return response
