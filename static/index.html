@@ -357,6 +357,9 @@
             <button class="btn" onclick="openProfile()">✏️ Mi perfil</button>
         </div>
 
+        <!-- 1. Nuevo contenedor para la Fase de Entrenamiento -->
+        <div id="phaseContainer" style="margin-bottom: 25px;"></div>
+
         <div id="decisionContainer">
             <div class="loading"><div class="spinner"></div>Analizando tu entrenamiento...</div>
         </div>
@@ -979,17 +982,61 @@
             await loadLearningStatus();
         }
 
+        // 2. Nueva función para renderizar la fase
+        function renderPhase(data) {
+            if (!data) return;
+            const colors = {
+                descarga: '#ff4444',
+                consolidacion: '#ffaa00', 
+                carga: '#00cc66',
+                pico: '#00aaff'
+            };
+            const color = colors[data.phase] || '#888';
+            document.getElementById('phaseContainer').innerHTML = `
+                <div style="
+                    background: #12121e;
+                    border: 1px solid ${color}44;
+                    border-left: 4px solid ${color};
+                    border-radius: 12px;
+                    padding: 18px 24px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <div>
+                        <div style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:4px;">Fase de Entrenamiento</div>
+                        <div style="font-size:20px; font-weight:700; color:${color};">${data.emoji} ${data.label}</div>
+                        <div style="font-size:13px; color:#999; margin-top:6px;">${data.description}</div>
+                    </div>
+                    <div style="text-align:right; min-width:180px;">
+                        <div style="font-size:11px; color:#666; margin-bottom:6px;">RECOMENDACIÓN</div>
+                        <div style="font-size:12px; color:#ccc; line-height:1.5;">${data.recommendation}</div>
+                        <div style="font-size:11px; color:#555; margin-top:8px;">Confianza: ${Math.round(data.confidence * 100)}%</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 2. Nueva función para cargar la fase desde el backend
+        async function loadPhase() {
+            const data = await fetchJSON('/morphy/phase');
+            renderPhase(data);
+        }
+
         // ── Main ──
         async function refreshAll() {
             document.getElementById('decisionContainer').innerHTML = '<div class="loading"><div class="spinner"></div>Analizando...</div>';
+            
             const [decision, state, activities] = await Promise.all([
                 fetchJSON('/morphy/decision'),
                 fetchJSON('/morphy/state'),
                 fetchJSON('/auth/strava/activities')
             ]);
+
             renderDecision(decision);
             renderState(state);
             renderActivities(activities);
+            loadPhase();  // 3. ← agregar esta línea
             loadHistory();
             loadFeedbackStats();
             loadLearningStatus(); // Cargar estado de aprendizaje

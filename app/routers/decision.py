@@ -306,3 +306,48 @@ def _calculate_state_for_date(activities, reference_date, max_hr, rest_hr):
     acwr = safe_round(atl / ctl, 2) if ctl > 0 else 0.0
 
     return {"acute_load_atl": atl, "chronic_load_ctl": ctl, "stress_balance_tsb": tsb, "acwr": acwr}
+
+from app.services.periodization_engine import detect_phase
+
+@router.get("/phase")
+async def get_training_phase(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Detecta la fase actual del ciclo de entrenamiento del atleta."""
+    cutoff = datetime.utcnow() - timedelta(days=60)
+    act_result = await db.execute(
+        select(Activity)
+        .where(Activity.user_id == current_user.id)
+        .where(Activity.start_date >= cutoff)
+        .order_by(Activity.start_date.desc())
+    )
+    activities = act_result.scalars().all()
+
+    if not activities:
+        raise HTTPException(status_code=404, detail="Sin actividades. Ejecuta /auth/strava/sync primero.")
+
+    state = calculate_athlete_state(
+        activities,
+        max_hr=float(current_user.max_hr or 182),
+        rest_hr=float(current_user.rest_hr or 50)
+    )
+
+    phase = await detect_phase(
+        user_id=str(current_user.id),
+        atl=state["acute_load_atl"],
+        ctl=state["chronic_load_ctl"],
+        tsb=state["stress_balance_tsb"],
+        acwr=state["acwr"],
+        db=db
+    )
+
+    return {
+        "phase": phase.phase,
+        "label": phase.label,
+        "emoji": phase.emoji,
+        "description": phase.description,
+        "recommendation": phase.recommendation,
+        "confidence": phase.confidence,
+        "metrics_used": phase.metrics_used
+    }
