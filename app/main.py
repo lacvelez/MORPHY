@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from app.database import engine, Base
 from app.models.models import User, Integration, Activity
-from app.routers import auth, decision, profile, feedback
+from app.routers import auth, decision, profile, feedback, learning
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,6 +24,7 @@ app.include_router(auth.router)
 app.include_router(decision.router)
 app.include_router(profile.router)
 app.include_router(feedback.router)
+app.include_router(learning.router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -34,3 +35,9 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+
+
+
+ 

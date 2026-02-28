@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
 import httpx
+import logging
 
 from app.config import settings
 from app.database import get_db
@@ -11,6 +12,7 @@ from app.models.models import User, Integration, Activity
 from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/strava/connect")
@@ -56,7 +58,6 @@ async def strava_callback(
     strava_athlete_id = athlete.get("id")
     name = f"{athlete.get('firstname', '')} {athlete.get('lastname', '')}".strip()
 
-    # Buscar usuario por athlete_id en integrations (más robusto que por nombre)
     result = await db.execute(
         select(Integration).where(
             Integration.provider == "strava",
@@ -66,7 +67,6 @@ async def strava_callback(
     existing_integration = result.scalar_one_or_none()
 
     if existing_integration:
-        # Usuario existente — actualizar tokens
         user_result = await db.execute(
             select(User).where(User.id == existing_integration.user_id)
         )
@@ -75,7 +75,6 @@ async def strava_callback(
         existing_integration.refresh_token = data["refresh_token"]
         existing_integration.expires_at = data["expires_at"]
     else:
-        # Usuario nuevo
         user = User(name=name)
         db.add(user)
         await db.flush()
@@ -92,14 +91,13 @@ async def strava_callback(
 
     await db.commit()
 
-    # Setear cookie httponly con el user_id interno
     response = RedirectResponse(url="/")
     response.set_cookie(
         key="morphy_user_id",
         value=str(user.id),
-        httponly=True,       # JS no puede leerla
-        samesite="lax",      # Protección CSRF básica
-        max_age=60 * 60 * 24 * 30,  # 30 días
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
     )
     return response
 
@@ -159,6 +157,15 @@ async def strava_sync(
         saved += 1
 
     await db.commit()
+
+    # Sprint 12B — inferencia automática de compliance
+    try:
+        from app.services.compliance_engine import run_compliance_inference
+        compliance = await run_compliance_inference(db, current_user, days_back=7)
+        logger.info(f"Compliance inference post-sync: {compliance}")
+    except Exception as e:
+        logger.error(f"Compliance inference failed (sync): {e}")
+
     return {
         "status": "sync_complete",
         "activities_saved": saved,
@@ -274,11 +281,41 @@ async def strava_enrich(
                 continue
 
     await db.commit()
+
+    # Auto-detectar FCmax real desde actividades históricas
+    from sqlalchemy import func as sa_func
+    max_hr_result = await db.execute(
+        select(sa_func.max(Activity.max_hr)).where(
+            Activity.user_id == current_user.id,
+            Activity.max_hr.isnot(None),
+            Activity.max_hr > 100
+        )
+    )
+    detected_max_hr = max_hr_result.scalar()
+
+    hr_suggestion = None
+    if detected_max_hr:
+        if not current_user.max_hr or detected_max_hr > current_user.max_hr:
+            old_max = current_user.max_hr
+            current_user.max_hr = detected_max_hr
+            await db.commit()
+            hr_suggestion = f"FCmax actualizada automáticamente: {old_max or 'no definida'} → {detected_max_hr} bpm"
+
+    # Sprint 12B — inferencia automática de compliance
+    try:
+        from app.services.compliance_engine import run_compliance_inference
+        compliance = await run_compliance_inference(db, current_user, days_back=7)
+        logger.info(f"Compliance inference post-enrich: {compliance}")
+    except Exception as e:
+        logger.error(f"Compliance inference failed (enrich): {e}")
+
     return {
         "status": "enrichment_complete",
         "activities_enriched": enriched,
         "activities_without_hr": no_hr_data,
-        "total_processed": len(activities)
+        "total_processed": len(activities),
+        "hr_max_detected": detected_max_hr,
+        "hr_suggestion": hr_suggestion
     }
 
 
@@ -342,10 +379,9 @@ async def strava_webhook_receive(request: Request, db: AsyncSession = Depends(ge
     object_type = body.get("object_type")
     aspect_type = body.get("aspect_type")
     object_id = body.get("object_id")
-    owner_id = body.get("owner_id")  # Strava athlete_id del dueño del evento
+    owner_id = body.get("owner_id")
 
     if object_type == "activity" and aspect_type == "create":
-        # Buscar la integration por athlete_id (multi-usuario correcto)
         result = await db.execute(
             select(Integration).where(
                 Integration.provider == "strava",
@@ -387,12 +423,24 @@ async def strava_webhook_receive(request: Request, db: AsyncSession = Depends(ge
                     db.add(new_activity)
                     await db.commit()
 
+                    # Sprint 12B — inferencia automática de compliance vía webhook
+                    try:
+                        user_result = await db.execute(
+                            select(User).where(User.id == integration.user_id)
+                        )
+                        webhook_user = user_result.scalar_one_or_none()
+                        if webhook_user:
+                            from app.services.compliance_engine import run_compliance_inference
+                            compliance = await run_compliance_inference(db, webhook_user, days_back=3)
+                            logger.info(f"Compliance inference post-webhook: {compliance}")
+                    except Exception as e:
+                        logger.error(f"Compliance inference failed (webhook): {e}")
+
     return {"status": "ok"}
 
 
 @router.get("/logout")
 async def logout():
-    """Cierra la sesión eliminando la cookie."""
     response = RedirectResponse(url="/auth/strava/connect")
     response.delete_cookie("morphy_user_id")
     return response

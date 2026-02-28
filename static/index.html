@@ -124,6 +124,210 @@
         .chart-tab.active { background: #1a1a2e; border-color: #7b2ff7; color: #a78bfa; }
         .chart-wrapper { position: relative; height: 220px; }
 
+        /* ── Learning Card ─────────────────────────────────────────────── */
+        .learning-card {
+            background: #12121e;
+            border: 1px solid #2a2a3e;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 25px;
+            margin-top: 25px;
+        }
+
+        .learning-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .learning-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .learning-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .badge-active   { background: rgba(0,204,102,0.15); color: #00cc66; }
+        .badge-inactive { background: rgba(255,170,0,0.15);  color: #ffaa00; }
+
+        /* Personalization progress bar */
+        .personalization-bar-wrap {
+            margin-bottom: 20px;
+        }
+        .personalization-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+        .personalization-track {
+            height: 8px;
+            background: #2a2a3e;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .personalization-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #7b2ff7, #00d4ff);
+            transition: width 1s ease;
+        }
+
+        /* Threshold adjustments display */
+        .thresholds-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .threshold-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #2a2a3e;
+            position: relative;
+        }
+
+        .threshold-item.adjusted {
+            border-color: #3a2a5e;
+            background: rgba(123,47,247,0.06);
+        }
+
+        .threshold-name {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .threshold-values {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .threshold-base { color: #555; text-decoration: line-through; }
+        .threshold-arrow { color: #7b2ff7; }
+        .threshold-effective { font-weight: 700; }
+        .threshold-effective.up   { color: #00cc66; }
+        .threshold-effective.down { color: #ff6b6b; }
+
+        .threshold-direction {
+            font-size: 10px;
+            margin-top: 4px;
+        }
+        .direction-tolerant  { color: #00cc66; }
+        .direction-strict    { color: #ffaa00; }
+
+        /* Signals breakdown */
+        .signals-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .signal-item {
+            flex: 1;
+            min-width: 120px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #1e1e30;
+        }
+
+        .signal-type {
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .signal-counts {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .sig-followed { color: #00cc66; }
+        .sig-ignored  { color: #ffaa00; }
+
+        /* Speed selector */
+        .speed-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .speed-btn {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid #2a2a3e;
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .speed-btn:hover { border-color: #7b2ff7; color: #ccc; }
+        .speed-btn.active {
+            background: rgba(123,47,247,0.2);
+            border-color: #7b2ff7;
+            color: #a78bfa;
+            font-weight: 600;
+        }
+
+        .custom-signals-wrap {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .custom-signals-wrap.visible { display: flex; }
+        .custom-signals-wrap input {
+            width: 80px;
+            padding: 6px 10px;
+            background: #1a1a2e;
+            border: 1px solid #3a3a5e;
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+        }
+
+        /* Tooltip on metric cards */
+        .metric-adapted-tag {
+            display: inline-block;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(123,47,247,0.2);
+            color: #a78bfa;
+            margin-left: 6px;
+            vertical-align: middle;
+            letter-spacing: 0.5px;
+        }
+
         @media (max-width: 600px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .activity-row { grid-template-columns: 2fr 1fr 1fr; }
@@ -172,6 +376,81 @@
 
         <div class="activities-section" id="activitiesContainer">
             <div class="loading"><div class="spinner"></div>Cargando actividades...</div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             SPRINT 11: LEARNING ENGINE UI
+        ═══════════════════════════════════════════════════════════════ -->
+        <div class="learning-card" id="learningCard">
+            <div class="learning-header">
+                <div class="learning-title">
+                    🧠 Motor Adaptativo
+                    <span id="learningBadge" class="learning-badge badge-inactive">Calibrando...</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn" onclick="resetLearning()" style="font-size:11px; padding:6px 12px;">
+                        Resetear aprendizaje
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress bar de personalización -->
+            <div class="personalization-bar-wrap">
+                <div class="personalization-label">
+                    <span>Nivel de personalización</span>
+                    <span id="personalizationPct">0%</span>
+                </div>
+                <div class="personalization-track">
+                    <div class="personalization-fill" id="personalizationFill" style="width:0%"></div>
+                </div>
+                <div style="font-size:11px; color:#555; margin-top:4px;" id="signalsNeeded"></div>
+            </div>
+
+            <!-- Umbrales ajustados -->
+            <div id="thresholdsSection">
+                <div style="font-size:12px; color:#555; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">
+                    Umbrales efectivos personalizados
+                </div>
+                <div class="thresholds-grid" id="thresholdsGrid">
+                    <!-- populated by JS -->
+                </div>
+            </div>
+
+            <!-- Señales por tipo de decisión -->
+            <div style="font-size:12px; color:#555; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">
+                Señales recopiladas
+            </div>
+            <div class="signals-row" id="signalsRow">
+                <!-- populated by JS -->
+            </div>
+
+            <!-- Configuración de velocidad -->
+            <div style="border-top:1px solid #2a2a3e; padding-top:16px; margin-top:4px;">
+                <div style="font-size:12px; color:#666; margin-bottom:10px;">
+                    Velocidad de aprendizaje
+                </div>
+                <div class="speed-selector" id="speedSelector">
+                    <button class="speed-btn" data-speed="conservative" onclick="setLearningSpeed('conservative')">
+                        🐢 Conservador <span style="color:#555">(10+ señales)</span>
+                    </button>
+                    <button class="speed-btn" data-speed="moderate" onclick="setLearningSpeed('moderate')">
+                        ⚖️ Moderado <span style="color:#555">(5+ señales)</span>
+                    </button>
+                    <button class="speed-btn" data-speed="fast" onclick="setLearningSpeed('fast')">
+                        ⚡ Rápido <span style="color:#555">(3+ señales)</span>
+                    </button>
+                    <button class="speed-btn" data-speed="custom" onclick="setLearningSpeed('custom')">
+                        ⚙️ Personalizado
+                    </button>
+                </div>
+                <div class="custom-signals-wrap" id="customSignalsWrap">
+                    <span style="font-size:12px; color:#666;">Mínimo de señales:</span>
+                    <input type="number" id="customSignalsInput" min="1" max="50" value="5">
+                    <button class="btn btn-primary" onclick="saveCustomSpeed()" style="padding:6px 14px; font-size:12px;">
+                        Guardar
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div class="chart-section" id="chartSection">
@@ -398,6 +677,10 @@
                     btn.classList.add('active');
                     document.getElementById('feedbackThanks').style.display = 'block';
                     loadFeedbackStats();
+                    
+                    // Disparar aprendizaje después de cada feedback
+                    await fetch('/learning/trigger', { method: 'POST' });
+                    await loadLearningStatus();
                 }
             } catch (e) { console.error('Error enviando feedback:', e); }
         }
@@ -554,6 +837,148 @@
             });
         }
 
+        // ── Learning Engine ──────────────────────────────────────────────────────────
+
+        let currentLearningSpeed = 'moderate';
+
+        async function loadLearningStatus() {
+            const data = await fetchJSON('/learning/status');
+            if (!data || data.error) return;
+            renderLearning(data);
+        }
+
+        function renderLearning(data) {
+            // Badge activo/inactivo
+            const badge = document.getElementById('learningBadge');
+            if (data.learning_active) {
+                badge.textContent = `ACTIVO — ${data.total_decisions_analyzed} decisiones`;
+                badge.className = 'learning-badge badge-active';
+            } else {
+                const needed = data.min_signals_required - data.total_decisions_analyzed;
+                badge.textContent = `Calibrando (${needed} señales más)`;
+                badge.className = 'learning-badge badge-inactive';
+            }
+
+            // Progress bar
+            const pct = Math.min(100, data.personalization_score || 0);
+            document.getElementById('personalizationFill').style.width = pct + '%';
+            document.getElementById('personalizationPct').textContent = pct + '%';
+            document.getElementById('signalsNeeded').textContent = data.learning_active
+                ? `Motor personalizado activo con ${data.total_decisions_analyzed} decisiones analizadas`
+                : `Necesita ${data.min_signals_required} señales para activar (${data.total_decisions_analyzed} actuales)`;
+
+            // Umbrales efectivos
+            const th = data.thresholds_effective;
+            const adjusted = data.adjusted_thresholds || [];
+            const adjustedNames = adjusted.map(a => a.name);
+
+            const baseValues = {
+                /*"Descanso (TSB)": { base: -20.0, eff: th.tsb_rest },
+                "Reducir (TSB)":  { base: -10.0, eff: th.tsb_reduce },
+                "ACWR Peligro":   { base: 1.5,   eff: th.acwr_danger },
+                "ACWR Precaución":{ base: 1.3,   eff: th.acwr_caution },
+                "Readiness":      { base: 30.0,  eff: th.readiness_low },*/
+                
+                "Descanso (TSB)":  { base: -20.0, eff: th.tsb_rest },
+                "ACWR Peligro":    { base: 1.5,   eff: th.acwr_danger },
+                "ACWR Precaución": { base: 1.3,   eff: th.acwr_caution },
+            };
+            
+
+            document.getElementById('thresholdsGrid').innerHTML = Object.entries(baseValues).map(([name, v]) => {
+                const isAdj = Math.abs(v.base - v.eff) > 0.05;
+                const isUp  = v.eff > v.base;
+                const dir   = isAdj ? (isUp ? 'Más tolerante' : 'Más conservador') : null;
+                return `
+                    <div class="threshold-item ${isAdj ? 'adjusted' : ''}">
+                        <div class="threshold-name">${name}</div>
+                        <div class="threshold-values">
+                            ${isAdj ? `<span class="threshold-base">${v.base}</span>
+                            <span class="threshold-arrow">→</span>` : ''}
+                            <span class="threshold-effective ${isAdj ? (isUp ? 'up' : 'down') : ''}">${v.eff}</span>
+                        </div>
+                        ${dir ? `<div class="threshold-direction ${isUp ? 'direction-tolerant' : 'direction-strict'}">${dir}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // Señales
+            const sigs = data.signals;
+            document.getElementById('signalsRow').innerHTML = Object.entries(sigs).map(([type, s]) => `
+                <div class="signal-item">
+                    <div class="signal-type">${type}</div>
+                    <div class="signal-counts">
+                        <span class="sig-followed" title="Siguió la recomendación">✓ ${s.followed}</span>
+                        <span style="color:#333">|</span>
+                        <span class="sig-ignored" title="Ignoró la recomendación">✗ ${s.ignored}</span>
+                    </div>
+                    ${type === 'rest' && s.good_outcomes_when_ignored > 0
+                        ? `<div style="font-size:10px;color:#555;margin-top:4px;">${s.good_outcomes_when_ignored} buenos ignorados</div>`
+                        : ''}
+                </div>
+            `).join('');
+
+            // Speed selector
+            currentLearningSpeed = data.learning_speed || 'moderate';
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.speed === currentLearningSpeed);
+            });
+            if (currentLearningSpeed === 'custom') {
+                document.getElementById('customSignalsWrap').classList.add('visible');
+                document.getElementById('customSignalsInput').value = data.min_signals_required;
+            }
+        }
+
+        function setLearningSpeed(speed) {
+            currentLearningSpeed = speed;
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.speed === speed);
+            });
+            const customWrap = document.getElementById('customSignalsWrap');
+            if (speed === 'custom') {
+                customWrap.classList.add('visible');
+            } else {
+                customWrap.classList.remove('visible');
+                saveLearningConfig(speed, null);
+            }
+        }
+
+        async function saveCustomSpeed() {
+            const val = parseInt(document.getElementById('customSignalsInput').value);
+            if (isNaN(val) || val < 1 || val > 50) {
+                alert('El valor debe estar entre 1 y 50');
+                return;
+            }
+            await saveLearningConfig('custom', val);
+        }
+
+        async function saveLearningConfig(speed, customSignals) {
+            const body = { learning_speed: speed };
+            if (customSignals !== null) body.custom_min_signals = customSignals;
+            
+            const r = await fetch('/learning/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await r.json();
+            if (data.message) {
+                // Pequeña notificación inline sin alert()
+                const note = document.createElement('div');
+                note.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1a1a2e;border:1px solid #7b2ff7;color:#a78bfa;padding:12px 20px;border-radius:8px;font-size:13px;z-index:999';
+                note.textContent = data.message;
+                document.body.appendChild(note);
+                setTimeout(() => note.remove(), 3000);
+            }
+            await loadLearningStatus();
+        }
+
+        async function resetLearning() {
+            if (!confirm('¿Resetear el aprendizaje? Los multiplicadores volverán a valores base.')) return;
+            await fetch('/learning/reset', { method: 'POST' });
+            await loadLearningStatus();
+        }
+
         // ── Main ──
         async function refreshAll() {
             document.getElementById('decisionContainer').innerHTML = '<div class="loading"><div class="spinner"></div>Analizando...</div>';
@@ -567,6 +992,7 @@
             renderActivities(activities);
             loadHistory();
             loadFeedbackStats();
+            loadLearningStatus(); // Cargar estado de aprendizaje
         }
 
         async function syncActivities() {

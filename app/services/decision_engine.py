@@ -7,7 +7,7 @@ son ridículas y se ignoran. MORPHY adapta la sesión al estado real del atleta,
 combinando datos fisiológicos con percepción subjetiva.
 """
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from app.services.athlete_state import AthleteState
 
 @dataclass
@@ -63,27 +63,36 @@ class DecisionEngine:
         high = int(self.rest_hr + hr_reserve * high_pct)
         return f"{low}-{high} bpm"
     
-    def generate_decision(self, state: AthleteState, perceived_effort: Optional[int] = None) -> Decision:
+    def generate_decision(self, state: AthleteState, perceived_effort: Optional[int] = None, thresholds: Optional[Dict[str, Any]] = None) -> Decision:
         """
         Genera decisión de entrenamiento.
         perceived_effort: 1-10 (opcional, del atleta)
+        thresholds: dict con valores personalizados para las decisiones
+                   (acwr_danger, acwr_caution, tsb_fatigued, tsb_fresh)
         """
+        
+        # Thresholds personalizables con valores por defecto
+        th = thresholds or {}
+        acwr_danger = th.get("acwr_danger", 1.5)
+        acwr_caution = th.get("acwr_caution", 1.3)
+        tsb_fatigued = th.get("tsb_fatigued", -15.0)
+        tsb_fresh = th.get("tsb_fresh", 10.0)
         
         # Sin datos suficientes
         if state.activities_count < 3:
             return self._insufficient_data(state)
         
         # Evaluar estado y generar decisión adaptada
-        if state.acwr > 1.5 or state.injury_risk == "high":
+        if state.acwr > acwr_danger or state.injury_risk == "high":
             return self._high_load_day(state, perceived_effort)
         
-        elif state.acwr > 1.3 or state.injury_risk == "moderate":
+        elif state.acwr > acwr_caution or state.injury_risk == "moderate":
             return self._elevated_load_day(state, perceived_effort)
         
-        elif state.training_stress_balance < -15:
+        elif state.training_stress_balance < tsb_fatigued:
             return self._fatigued_day(state, perceived_effort)
         
-        elif state.training_stress_balance > 10 and state.chronic_load > 5:
+        elif state.training_stress_balance > tsb_fresh and state.chronic_load > 5:
             return self._fresh_day(state, perceived_effort)
         
         elif state.days_since_last >= 3:

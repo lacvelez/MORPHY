@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from datetime import datetime
 from app.database import get_db
 from app.models.models import User, DecisionFeedback
 from app.dependencies import get_current_user
+from app.services.learning_engine import analyze_and_update  # Sprint 11
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
@@ -39,6 +40,10 @@ async def save_feedback(
     )
     db.add(feedback)
     await db.commit()
+
+    # Sprint 11: disparar aprendizaje después de cada feedback
+    await analyze_and_update(current_user.id, db)
+
     return {"status": "ok", "followed": payload.followed}
 
 
