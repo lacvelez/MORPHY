@@ -8,6 +8,7 @@ import logging
 from app.database import get_db
 from app.models.models import User, Activity
 from app.dependencies import get_current_user
+from app.services.plan_context import get_today_plan_context, enrich_decision_with_plan
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,10 @@ async def get_training_decision(
         )
         activities = act_result.scalars().all()
         if not activities:
-            raise HTTPException(status_code=404, detail="Sin actividades. Ejecuta /auth/strava/sync primero.")
+            raise HTTPException(
+                status_code=404,
+                detail="Sin actividades. Ejecuta /auth/strava/sync primero."
+            )
 
         athlete_name = current_user.name or current_user.email or "Athlete"
         state = calculate_athlete_state(
@@ -200,15 +204,20 @@ async def get_training_decision(
         )
         decision = generate_decision(state, athlete_name)
 
+        # ── Fase 3: enriquecer con contexto del PLAN ─────────
+        plan_ctx = await get_today_plan_context(str(current_user.id), db)
+        decision = enrich_decision_with_plan(decision, plan_ctx, state)
+        # ─────────────────────────────────────────────────────
+
         return {
             "athlete": athlete_name,
             "generated_at": datetime.utcnow().isoformat(),
             "state": state,
             "state_summary": {
-                "acwr": state["acwr"],
+                "acwr":      state["acwr"],
                 "readiness": state["readiness_score"],
-                "tsb": state["stress_balance_tsb"],
-                "risk": state["injury_risk"],
+                "tsb":       state["stress_balance_tsb"],
+                "risk":      state["injury_risk"],
             },
             "decision": decision,
         }
@@ -216,57 +225,6 @@ async def get_training_decision(
         raise
     except Exception as e:
         logger.exception("Error generando decisión")
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
-
-@router.get("/history")
-async def get_metrics_history(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    try:
-        cutoff = datetime.utcnow() - timedelta(days=84)
-        act_result = await db.execute(
-            select(Activity)
-            .where(Activity.user_id == current_user.id)
-            .where(Activity.start_date >= cutoff)
-            .order_by(Activity.start_date.asc())
-        )
-        all_activities = act_result.scalars().all()
-
-        max_hr = float(current_user.max_hr or 182)
-        rest_hr = float(current_user.rest_hr or 50)
-
-        history = []
-        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-
-        for days_back in range(41, -1, -1):
-            target_date = today - timedelta(days=days_back)
-            end_of_day = target_date + timedelta(days=1)
-            activities_until_date = [
-                a for a in all_activities
-                if a.start_date is not None and
-                a.start_date.replace(tzinfo=None) < end_of_day
-            ]
-            if activities_until_date:
-                state = _calculate_state_for_date(activities_until_date, target_date, max_hr, rest_hr)
-            else:
-                state = {"acute_load_atl": 0, "chronic_load_ctl": 0, "stress_balance_tsb": 0, "acwr": 0}
-
-            history.append({
-                "date": target_date.strftime("%Y-%m-%d"),
-                "atl": state["acute_load_atl"],
-                "ctl": state["chronic_load_ctl"],
-                "tsb": state["stress_balance_tsb"],
-                "acwr": state["acwr"],
-            })
-
-        return {"athlete": current_user.name, "history": history}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Error calculando historial")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
@@ -306,6 +264,7 @@ def _calculate_state_for_date(activities, reference_date, max_hr, rest_hr):
     acwr = safe_round(atl / ctl, 2) if ctl > 0 else 0.0
 
     return {"acute_load_atl": atl, "chronic_load_ctl": ctl, "stress_balance_tsb": tsb, "acwr": acwr}
+
 
 from app.services.periodization_engine import detect_phase
 
