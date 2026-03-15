@@ -44,6 +44,17 @@ BANISTER_FACTORS = {
 # Se ajusta la intensidad relativa para no subestimar carga
 SWIM_HR_CORRECTION = 12  # bpm a sumar antes de calcular zona
 
+# Porcentajes de HRR por zona — mismos umbrales que get_hr_zone()
+# get_hr_zone  usa: <0.60 → Z1, <0.75 → Z2, <0.85 → Z3, <0.92 → Z4, else Z5
+# calc_karvonen_zones usa los mismos límites — fuente de verdad única
+KARVONEN_ZONE_RANGES = {
+    1: (0.50, 0.60),
+    2: (0.60, 0.75),
+    3: (0.75, 0.85),
+    4: (0.85, 0.92),
+    5: (0.92, 1.00),
+}
+
 
 # ─────────────────────────────────────────────
 # Funciones auxiliares
@@ -59,6 +70,29 @@ def get_hr_zone(avg_hr: int, hr_max: int, hr_rest: int) -> str:
     if intensity < 0.85: return "Z3"
     if intensity < 0.92: return "Z4"
     return "Z5"
+
+
+def calc_karvonen_zones(max_hr: int, rest_hr: int) -> dict[int, tuple[int, int]]:
+    """
+    Inverso de get_hr_zone(): dado FCmax y FCrep, retorna los rangos HR
+    de cada zona para este atleta concreto.
+
+    Retorna: {1: (hr_min, hr_max), 2: ..., 3: ..., 4: ..., 5: ...}
+
+    Ejemplo FCmax=194, FCrep=40:
+      Z1: 117-132  Z2: 132-156  Z3: 156-171  Z4: 171-182  Z5: 182-194
+
+    Usado por pace_strategist.py — no asumir zonas fijas para ningún atleta.
+    """
+    if max_hr <= rest_hr:
+        raise ValueError(
+            f"FCmax ({max_hr}) debe ser mayor que FCrep ({rest_hr})."
+        )
+    hrr = max_hr - rest_hr
+    return {
+        zone: (round(rest_hr + lo * hrr), round(rest_hr + hi * hrr))
+        for zone, (lo, hi) in KARVONEN_ZONE_RANGES.items()
+    }
 
 
 def elevation_adjustment(elevation_m: float) -> float:
@@ -181,45 +215,45 @@ def calc_trimp(
 
 INDOOR_EQUIVALENTS = {
     "easy_flat": [
-        {"equipment": "treadmill",         "duration_factor": 1.00, "setting": "0-2% incline",          "zone": "Z1-Z2"},
-        {"equipment": "elliptical",        "duration_factor": 1.10, "setting": "resistencia media",     "zone": "Z1-Z2"},
-        {"equipment": "spin_bike",         "duration_factor": 1.15, "setting": "cadencia 80-90 rpm",    "zone": "Z1-Z2"},
+        {"equipment": "treadmill",         "duration_factor": 1.00, "setting": "0-2% incline",              "zone": "Z1-Z2"},
+        {"equipment": "elliptical",        "duration_factor": 1.10, "setting": "resistencia media",         "zone": "Z1-Z2"},
+        {"equipment": "spin_bike",         "duration_factor": 1.15, "setting": "cadencia 80-90 rpm",        "zone": "Z1-Z2"},
     ],
     "easy_climb": [
-        {"equipment": "treadmill_incline", "duration_factor": 0.85, "setting": "8-12% incline",         "zone": "Z2"},
-        {"equipment": "stairmaster",       "duration_factor": 0.70, "setting": "velocidad moderada",    "zone": "Z2"},
-        {"equipment": "elliptical",        "duration_factor": 1.05, "setting": "resistencia alta",      "zone": "Z2"},
+        {"equipment": "treadmill_incline", "duration_factor": 0.85, "setting": "8-12% incline",             "zone": "Z2"},
+        {"equipment": "stairmaster",       "duration_factor": 0.70, "setting": "velocidad moderada",        "zone": "Z2"},
+        {"equipment": "elliptical",        "duration_factor": 1.05, "setting": "resistencia alta",          "zone": "Z2"},
     ],
     "tempo": [
-        {"equipment": "curved_treadmill",  "duration_factor": 0.85, "setting": "resistencia 3-4",       "zone": "Z3"},
-        {"equipment": "treadmill",         "duration_factor": 0.90, "setting": "1% incline, umbral",    "zone": "Z3"},
-        {"equipment": "spin_bike",         "duration_factor": 0.95, "setting": "intervalos 3:1",        "zone": "Z3"},
+        {"equipment": "curved_treadmill",  "duration_factor": 0.85, "setting": "resistencia 3-4",           "zone": "Z3"},
+        {"equipment": "treadmill",         "duration_factor": 0.90, "setting": "1% incline, umbral",        "zone": "Z3"},
+        {"equipment": "spin_bike",         "duration_factor": 0.95, "setting": "intervalos 3:1",            "zone": "Z3"},
     ],
     "intervals": [
-        {"equipment": "curved_treadmill",  "duration_factor": 0.80, "setting": "sprints máximos",       "zone": "Z4-Z5"},
-        {"equipment": "spin_bike",         "duration_factor": 0.85, "setting": "tabata potencia max",   "zone": "Z4-Z5"},
-        {"equipment": "stairmaster",       "duration_factor": 0.75, "setting": "velocidad alta",        "zone": "Z4"},
+        {"equipment": "curved_treadmill",  "duration_factor": 0.80, "setting": "sprints máximos",           "zone": "Z4-Z5"},
+        {"equipment": "spin_bike",         "duration_factor": 0.85, "setting": "tabata potencia max",       "zone": "Z4-Z5"},
+        {"equipment": "stairmaster",       "duration_factor": 0.75, "setting": "velocidad alta",            "zone": "Z4"},
     ],
     "long_run": [
-        {"equipment": "treadmill",         "duration_factor": 1.00, "setting": "0-3% incline",          "zone": "Z1-Z2"},
-        {"equipment": "elliptical",        "duration_factor": 1.10, "setting": "resistencia media",     "zone": "Z1-Z2"},
+        {"equipment": "treadmill",         "duration_factor": 1.00, "setting": "0-3% incline",              "zone": "Z1-Z2"},
+        {"equipment": "elliptical",        "duration_factor": 1.10, "setting": "resistencia media",         "zone": "Z1-Z2"},
     ],
     "trail_climb": [
-        {"equipment": "stairmaster",       "duration_factor": 0.65, "setting": "velocidad alta",        "zone": "Z2-Z3"},
-        {"equipment": "treadmill_incline", "duration_factor": 0.80, "setting": "12-15% incline",        "zone": "Z2-Z3"},
-        {"equipment": "elliptical",        "duration_factor": 1.00, "setting": "resistencia máxima",    "zone": "Z2-Z3"},
+        {"equipment": "stairmaster",       "duration_factor": 0.65, "setting": "velocidad alta",            "zone": "Z2-Z3"},
+        {"equipment": "treadmill_incline", "duration_factor": 0.80, "setting": "12-15% incline",            "zone": "Z2-Z3"},
+        {"equipment": "elliptical",        "duration_factor": 1.00, "setting": "resistencia máxima",        "zone": "Z2-Z3"},
     ],
     "swimming_pool": [
-        {"equipment": "pool_swim",         "duration_factor": 1.00, "setting": "ritmo moderado Z2",     "zone": "Z2"},
-        {"equipment": "rowing",            "duration_factor": 0.90, "setting": "resistencia media",     "zone": "Z2"},
+        {"equipment": "pool_swim",         "duration_factor": 1.00, "setting": "ritmo moderado Z2",         "zone": "Z2"},
+        {"equipment": "rowing",            "duration_factor": 0.90, "setting": "resistencia media",         "zone": "Z2"},
     ],
     "swimming_open": [
         {"equipment": "pool_swim",         "duration_factor": 1.10, "setting": "ritmo sostenido + técnica", "zone": "Z2-Z3"},
-        {"equipment": "rowing",            "duration_factor": 0.95, "setting": "resistencia alta",      "zone": "Z2-Z3"},
+        {"equipment": "rowing",            "duration_factor": 0.95, "setting": "resistencia alta",          "zone": "Z2-Z3"},
     ],
     "brick_workout": [
-        {"equipment": "spin_bike",         "duration_factor": 1.00, "setting": "cadencia 85-95 rpm Z2", "zone": "Z2"},
-        {"equipment": "treadmill",         "duration_factor": 0.50, "setting": "0-1% ritmo carrera",    "zone": "Z2"},
+        {"equipment": "spin_bike",         "duration_factor": 1.00, "setting": "cadencia 85-95 rpm Z2",     "zone": "Z2"},
+        {"equipment": "treadmill",         "duration_factor": 0.50, "setting": "0-1% ritmo carrera",        "zone": "Z2"},
     ],
 }
 
